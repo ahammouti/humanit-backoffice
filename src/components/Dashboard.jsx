@@ -1,0 +1,924 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { getStats, getPoleHistory } from '../api/dashboard.js';
+import {
+  CheckCircle2, AlertCircle, Clock, CreditCard,
+  TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2,
+  ChevronRight, Send, Globe, FolderOpen, ArrowUpRight,
+} from 'lucide-react';
+import { StatCard, BarChart } from './ui';
+
+const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+function parseDateStr(s) {
+  if (!s) return null;
+  const p = s.split(' ')[0].split('/');
+  return p.length === 3 ? { month: +p[1], year: +p[2] } : null;
+}
+
+const buildInsight = (a, b, c, d) =>
+  `📊 ${a} donateurs actifs génèrent ${c} €/mois attendus. ` +
+  `⚠️ ${b} retard${b > 1 ? 's' : ''} représentent ${d} € d'impayés (${c > 0 ? Math.round(d / c * 100) : 0}% du mensuel). ` +
+  `💡 Priorisez les relances des donateurs sans contact récent pour maximiser la récupération ce mois-ci.`;
+
+function calcEnvoiTotal(envoi) {
+  const sub   = envoi.items.reduce((s, it) => s + (parseFloat(it.eur) || 0), 0);
+  const frais = Math.round(sub * (envoi.fraisPct || 0) / 100 * 100) / 100;
+  return Math.round((sub + frais) * 100) / 100;
+}
+
+const PALETTE = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899'];
+
+function DonutChart({ data, centerLabel, centerValue }) {
+  const S = 180, cx = S / 2, cy = S / 2, R = 76, r = 46;
+  const total = data.reduce((s, d) => s + Math.max(0, d.value), 0);
+  if (total === 0) return (
+    <div className="relative flex-shrink-0" style={{ width: S, height: S }}>
+      <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S}>
+        <circle cx={cx} cy={cy} r={(R + r) / 2} fill="none" stroke="#e5e7eb" strokeWidth={R - r} />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <p className="text-xs text-gray-400">Aucune donnée</p>
+      </div>
+    </div>
+  );
+  const slices = [];
+  let angle = -Math.PI / 2;
+  const valid = data.filter(d => d.value > 0);
+  valid.forEach(d => {
+    const sweep = (d.value / total) * 2 * Math.PI * (valid.length > 1 ? 0.97 : 1);
+    const gap   = valid.length > 1 ? (2 * Math.PI * 0.03) / valid.length : 0;
+    const s = angle + gap / 2, e = s + sweep;
+    angle += sweep + gap;
+    const large = sweep > Math.PI ? 1 : 0;
+    const p = [
+      `M ${(cx + R * Math.cos(s)).toFixed(1)} ${(cy + R * Math.sin(s)).toFixed(1)}`,
+      `A ${R} ${R} 0 ${large} 1 ${(cx + R * Math.cos(e)).toFixed(1)} ${(cy + R * Math.sin(e)).toFixed(1)}`,
+      `L ${(cx + r * Math.cos(e)).toFixed(1)} ${(cy + r * Math.sin(e)).toFixed(1)}`,
+      `A ${r} ${r} 0 ${large} 0 ${(cx + r * Math.cos(s)).toFixed(1)} ${(cy + r * Math.sin(s)).toFixed(1)}`,
+      'Z',
+    ].join(' ');
+    slices.push({ ...d, p, pct: Math.round(d.value / total * 100) });
+  });
+  return (
+    <div className="relative flex-shrink-0" style={{ width: S, height: S }}>
+      <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S}>
+        {slices.map((s, i) => <path key={i} d={s.p} fill={s.color} />)}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        {centerLabel && <p className="text-xs text-gray-400 font-medium">{centerLabel}</p>}
+        {centerValue  && <p className="text-sm font-bold text-gray-900 mt-0.5">{centerValue}</p>}
+      </div>
+    </div>
+  );
+}
+
+export default function Dashboard({ donors, payments, envois = [], selectedPole, periodMode, onGoToRelances, onNavigate }) {
+  const [insight, setInsight]               = useState('');
+  const [loadingInsight, setLoadingInsight] = useState(false);
+  const [tab, setTab]                       = useState('global');
+  const [drillPole, setDrillPole]           = useState(null);
+  const [drillYear, setDrillYear]           = useState(null);
+  const [drillMonth, setDrillMonth]         = useState(null);
+  const [apiStats, setApiStats]             = useState(null);
+  const [statsLoading, setStatsLoading]     = useState(true);
+  const [drillHistory, setDrillHistory]     = useState(null);  // { rec, expected }
+  const [drillLoading, setDrillLoading]     = useState(false);
+
+  // ── Fetch stats from API (fast aggregations — no full table scan) ─────────
+  useEffect(() => {
+    setStatsLoading(true);
+    getStats(selectedPole ? { pole: selectedPole } : {})
+      .then(s => { setApiStats(s); setStatsLoading(false); })
+      .catch(() => setStatsLoading(false));
+  }, [selectedPole]);
+
+  // ── Filtered donors by selected pole (for drill-down tabs) ───────────────
+  const filteredDonors = useMemo(() =>
+    selectedPole ? donors.filter(d => d.pole === selectedPole) : donors,
+  [donors, selectedPole]);
+
+  // ── KPIs — prefer API stats (instant), fall back to client-side ──────────
+  const totalActive     = apiStats?.kpis.activeCount    ?? filteredDonors.filter(d => d.status === 'ACTIF').length;
+  const totalDelayed    = apiStats?.kpis.delayedCount   ?? filteredDonors.filter(d => d.status === 'RETARD').length;
+  const totalArrete     = apiStats?.kpis.arresteCount   ?? filteredDonors.filter(d => d.status === 'ARRETE').length;
+  const expectedMonthly = apiStats?.kpis.expectedMonthly ?? filteredDonors.filter(d => d.status !== 'ARRETE').reduce((s, d) => s + d.amount, 0);
+  const delayedAmount   = apiStats?.kpis.delayedAmount  ?? filteredDonors.filter(d => d.status === 'RETARD').reduce((s, d) => s + d.amount * d.delayMonths, 0);
+  const retentionRate   = apiStats?.kpis.retentionRate  ?? 0;
+
+  const now                = new Date();
+  const currentMonthSearch = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  const currentMonthName   = `${MONTH_NAMES[now.getMonth()]} ${now.getFullYear()}`;
+
+  // ── Pole stats — from API (no payments prop needed) ──────────────────────
+  const poleStats = apiStats?.byPoleStats ?? [];
+
+  // ── Drill-down data — lazy fetched when user clicks a pole ───────────────
+  const drillRec = drillHistory?.rec ?? {};
+  const drillExp = drillHistory ? { [drillPole]: drillHistory.expected } : {};
+
+  const urgentCount = apiStats?.kpis.urgentCount ?? 0;
+  const toContact = filteredDonors.filter(d => d.status === 'RETARD' && !d.lastContactDate);
+
+  // ── Monthly stats — prefer API (accurate, no full payments load needed) ──
+  const monthlyStats = useMemo(() => {
+    if (apiStats?.monthlyStats?.length) return apiStats.monthlyStats;
+    // Fallback: compute from local payments if available
+    const stats = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = d.getMonth() + 1;
+      const y = d.getFullYear();
+      const received = payments
+        .filter(p => {
+          if (p.status !== 'Payé') return false;
+          const pd = parseDateStr(p.date);
+          return pd && pd.month === m && pd.year === y &&
+            (!selectedPole || p.pole === selectedPole);
+        })
+        .reduce((s, p) => s + p.amount, 0);
+      stats.push({ month: MONTH_NAMES[d.getMonth()].slice(0, 3), year: y, received, expected: expectedMonthly });
+    }
+    return stats;
+  }, [apiStats, payments, selectedPole, expectedMonthly]);
+
+  const handleInsight = async () => {
+    setLoadingInsight(true);
+    await new Promise(r => setTimeout(r, 1500));
+    setInsight(buildInsight(totalActive, totalDelayed, expectedMonthly, delayedAmount));
+    setLoadingInsight(false);
+  };
+
+  // ── Lazy-fetch drill history when a pole is selected ─────────────────────
+  useEffect(() => {
+    if (!drillPole) { setDrillHistory(null); return; }
+    setDrillLoading(true);
+    getPoleHistory(drillPole)
+      .then(setDrillHistory)
+      .catch(() => {})
+      .finally(() => setDrillLoading(false));
+  }, [drillPole]);
+
+  // ── Drill-down helpers ────────────────────────────────────────────────────
+  const getYears = (pole) => Object.keys(drillRec).map(Number).sort((a, b) => b - a);
+
+  const getMonthsForYear = (_pole, year) => {
+    const paid = new Set(Object.keys(drillRec[year] || {}).map(Number));
+    const today = new Date();
+    // Add all months up to today that are within the year
+    for (let m = 1; m <= 12; m++) {
+      if (year < today.getFullYear() || (year === today.getFullYear() && m <= today.getMonth() + 1)) {
+        paid.add(m);
+      }
+    }
+    return [...paid].sort((a, b) => a - b);
+  };
+
+  const getDonorsForMonth = (pole, year, month) =>
+    donors
+      .filter(d => d.pole === pole && d.status !== 'ARRETE' && new Date(d.startDate) <= new Date(year, month - 1, 28))
+      .map(d => {
+        const paid = payments
+          .filter(p => p.donorId === d.id && p.status === 'Payé' && (() => { const x = parseDateStr(p.date); return x?.month === month && x?.year === year; })())
+          .reduce((s, p) => s + p.amount, 0);
+        return { ...d, paidThisMonth: paid, isPaid: paid >= d.amount };
+      });
+
+  // ── Envois summary (global card + sorties tab) ───────────────────────────
+  const envoisStats = useMemo(() => {
+    const sent    = envois.filter(e => e.status !== 'planifié').sort((a, b) => new Date(b.date) - new Date(a.date));
+    const planned = envois.filter(e => e.status === 'planifié').sort((a, b) => new Date(a.date) - new Date(b.date));
+    const last         = sent[0] ?? null;
+    const lastTotal    = last ? calcEnvoiTotal(last) : 0;
+    const totalSent    = sent.reduce((s, e) => s + calcEnvoiTotal(e), 0);
+    const nextPlan     = planned[0] ?? null;
+    const nextPlanTotal = nextPlan ? calcEnvoiTotal(nextPlan) : 0;
+    const plannedTotal = planned.reduce((s, e) => s + calcEnvoiTotal(e), 0);
+    const plannedCount = planned.length;
+    // Group sent by year-month for timeline
+    const monthMap = {};
+    sent.forEach(e => {
+      const d = new Date(e.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthMap[key]) monthMap[key] = { key, label: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`, date: d, envois: [], total: 0 };
+      monthMap[key].envois.push(e);
+      monthMap[key].total += calcEnvoiTotal(e);
+    });
+    const sentGroups = Object.values(monthMap).sort((a, b) => b.date - a.date);
+    return { last, lastTotal, totalSent, nextPlan, nextPlanTotal, plannedTotal, plannedCount, planned, sentGroups };
+  }, [envois]);
+
+  // ── Financial overview data ──────────────────────────────────────────────
+  const financialData = useMemo(() => {
+    const cy = now.getFullYear(), cm = now.getMonth() + 1;
+    const periodLabel = periodMode === 'monthly' ? `${MONTH_NAMES[cm - 1]} ${cy}` : `Année ${cy}`;
+
+    const collecte = apiStats?.financials
+      ? (periodMode === 'monthly' ? apiStats.financials.collecteMensuelle : apiStats.financials.collecteAnnuelle)
+      : 0;
+    const depense = apiStats?.financials
+      ? (periodMode === 'monthly' ? apiStats.financials.depenseMensuelle : apiStats.financials.depenseAnnuelle)
+      : 0;
+    const disponible = collecte - depense;
+
+    // Pie data — per-pole breakdown from API
+    let pieData;
+    if (!selectedPole && apiStats?.byPoleCollected?.length) {
+      pieData = apiStats.byPoleCollected.map((p, i) => ({
+        label: p.name,
+        color: PALETTE[i % PALETTE.length],
+        value: p.annuel,
+      })).filter(d => d.value > 0);
+    } else {
+      pieData = [
+        { label: 'Collecté', color: '#10b981', value: collecte },
+        { label: 'Dépensé',  color: '#f59e0b', value: Math.min(depense, collecte) },
+        ...(disponible < 0 ? [{ label: 'Déficit', color: '#ef4444', value: -disponible }] : []),
+      ].filter(d => d.value > 0);
+    }
+    return { collecte, depense, disponible, pieData, periodLabel };
+  }, [apiStats, selectedPole, periodMode, now]);
+
+  // ── Shared tab button style ───────────────────────────────────────────────
+  const tabCls = t => `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+    tab === t
+      ? 'bg-white shadow-sm text-gray-900'
+      : 'text-gray-500 hover:text-gray-700'
+  }`;
+
+  return (
+    <div className="p-6 space-y-6">
+
+      {/* ── AI INSIGHT ─────────────────────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-blue-950 to-indigo-900 rounded-xl p-6 text-white relative overflow-hidden">
+        <div className="absolute -top-6 -right-6 opacity-10 pointer-events-none">
+          <Sparkles className="h-32 w-32" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-bold text-base flex items-center gap-2 text-blue-100">
+              <Sparkles className="h-5 w-5 text-yellow-400" /> Analyse IA du mois
+            </h3>
+            <button
+              onClick={handleInsight}
+              disabled={loadingInsight}
+              className="text-xs font-semibold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors disabled:opacity-60"
+            >
+              {loadingInsight ? <Loader2 className="h-3 w-3 animate-spin" /> : '✨'} Générer
+            </button>
+          </div>
+          {loadingInsight
+            ? <div className="flex items-center gap-2 text-blue-200 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Analyse en cours...</div>
+            : insight
+              ? <p className="text-sm leading-relaxed text-blue-50">{insight}</p>
+              : <p className="text-sm text-blue-400 italic">Cliquez sur "Générer" pour une synthèse intelligente.</p>
+          }
+        </div>
+      </div>
+
+      {/* ── KPIs ───────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Donateurs Actifs"  value={totalActive}            subtitle={`${retentionRate}% de fidélité`}           icon={<CheckCircle2 />} color="green"  onClick={() => onNavigate?.('donors')} />
+        <StatCard title="En Retard"         value={totalDelayed}           subtitle={`${delayedAmount} € à récupérer`}           icon={<AlertCircle />}  color="red"    onClick={() => onNavigate?.('relances')} />
+        <StatCard title="Attendu / mois"    value={`${expectedMonthly} €`} subtitle={`${totalActive} donateurs engagés`} icon={<CreditCard />}   color="blue"   onClick={() => onNavigate?.('payments')} />
+        <StatCard title="Impayés cumulés"   value={`${delayedAmount} €`}   subtitle={`${totalArrete} arrêté${totalArrete > 1 ? 's' : ''}`} icon={<Clock />} color="orange" onClick={() => onNavigate?.('relances')} />
+      </div>
+
+      {/* ── TABS ───────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <button onClick={() => setTab('global')}  className={tabCls('global')}>
+          <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Vue globale</span>
+        </button>
+        <button onClick={() => { setTab('projets'); setDrillPole(null); setDrillYear(null); setDrillMonth(null); }} className={tabCls('projets')}>
+          <span className="flex items-center gap-1.5"><FolderOpen className="h-3.5 w-3.5" /> Par projet</span>
+        </button>
+        <button onClick={() => setTab('sorties')} className={tabCls('sorties')}>
+          <span className="flex items-center gap-1.5"><Send className="h-3.5 w-3.5" /> Sorties planifiées</span>
+        </button>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          TAB : VUE GLOBALE
+      ══════════════════════════════════════════════════════════════════════ */}
+      {tab === 'global' && (<>
+
+        {/* ── FINANCIAL OVERVIEW ─────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-gray-500" />
+            <h3 className="font-bold text-gray-800 text-sm">
+              Analyse financière — {selectedPole
+                ? <span className="text-blue-700">{selectedPole.length > 30 ? selectedPole.slice(0, 28) + '…' : selectedPole}</span>
+                : 'Tous les projets'
+              } · <span className="font-normal text-gray-500">{financialData.periodLabel}</span>
+            </h3>
+          </div>
+          <div className="p-5 flex gap-6 items-center flex-wrap">
+            {/* Donut */}
+            <div className="flex flex-col items-center gap-3 flex-shrink-0">
+              <DonutChart
+                data={financialData.pieData}
+                centerLabel={periodMode === 'monthly' ? 'Ce mois' : 'Annuel'}
+                centerValue={`${financialData.collecte} €`}
+              />
+              {/* Legend */}
+              <div className="space-y-1.5 w-44">
+                {financialData.pieData.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                      <span className="text-xs text-gray-500 truncate">{d.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-xs font-bold text-gray-800">{d.value} €</span>
+                      <span className="text-xs text-gray-400 w-8 text-right">
+                        {financialData.collecte > 0 ? Math.round(d.value / financialData.collecte * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {financialData.pieData.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center">Aucune donnée pour cette période</p>
+                )}
+              </div>
+            </div>
+
+            {/* 3 stat cards */}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
+              {/* Collecté */}
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Budget collecté</p>
+                </div>
+                <p className="text-2xl font-bold text-emerald-900">{financialData.collecte.toLocaleString('fr-FR')} €</p>
+                <p className="text-xs text-emerald-600 mt-1">Dons reçus · {financialData.periodLabel}</p>
+                <div className="mt-2 h-1 bg-emerald-100 rounded-full">
+                  <div className="h-1 bg-emerald-500 rounded-full" style={{ width: '100%' }} />
+                </div>
+              </div>
+
+              {/* Dépensé */}
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Dépenses terrain</p>
+                </div>
+                <p className="text-2xl font-bold text-amber-900">{financialData.depense.toLocaleString('fr-FR')} €</p>
+                <p className="text-xs text-amber-600 mt-1">Virements envoyés · {financialData.periodLabel}</p>
+                <div className="mt-2 h-1 bg-amber-100 rounded-full">
+                  <div className="h-1 bg-amber-500 rounded-full" style={{ width: financialData.collecte > 0 ? `${Math.min(100, Math.round(financialData.depense / financialData.collecte * 100))}%` : '0%' }} />
+                </div>
+              </div>
+
+              {/* Disponible */}
+              {(() => {
+                const pos = financialData.disponible >= 0;
+                const pct = financialData.collecte > 0 ? Math.round(Math.abs(financialData.disponible) / financialData.collecte * 100) : 0;
+                return (
+                  <div className={`${pos ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} border rounded-xl p-4`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`w-2 h-2 rounded-full ${pos ? 'bg-blue-500' : 'bg-red-500'}`} />
+                      <p className={`text-xs font-semibold uppercase tracking-wider ${pos ? 'text-blue-700' : 'text-red-700'}`}>{pos ? 'Solde disponible' : 'Déficit'}</p>
+                    </div>
+                    <p className={`text-2xl font-bold ${pos ? 'text-blue-900' : 'text-red-900'}`}>{Math.abs(financialData.disponible).toLocaleString('fr-FR')} €</p>
+                    <p className={`text-xs mt-1 ${pos ? 'text-blue-600' : 'text-red-600'}`}>{pos ? `${pct}% du budget restant` : `${pct}% de dépassement`}</p>
+                    <div className={`mt-2 h-1 ${pos ? 'bg-blue-100' : 'bg-red-100'} rounded-full`}>
+                      <div className={`h-1 ${pos ? 'bg-blue-500' : 'bg-red-500'} rounded-full`} style={{ width: `${Math.min(100, pct)}%` }} />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* Alerts + Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-red-100 bg-red-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-500" />
+                <h3 className="font-bold text-red-800 text-sm">À relancer ({toContact.length || urgentCount})</h3>
+              </div>
+              {(toContact.length > 0 || urgentCount > 0) && (
+                <button onClick={onGoToRelances} className="text-xs text-red-600 hover:underline font-semibold">Voir tout →</button>
+              )}
+            </div>
+            <div className="divide-y divide-gray-100">
+              {toContact.length === 0 && urgentCount === 0
+                ? <div className="p-6 text-center text-gray-400 text-sm"><CheckCircle2 className="h-7 w-7 mx-auto mb-2 text-green-300" /> Aucune relance urgente !</div>
+                : toContact.length > 0
+                ? toContact.slice(0, 5).map(d => (
+                  <div
+                    key={d.id}
+                    onClick={() => onNavigate?.('relances')}
+                    className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{d.firstName} {d.lastName}</p>
+                      <p className="text-xs text-gray-400">{d.delayMonths} mois · {d.amount * d.delayMonths} €</p>
+                    </div>
+                    <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">{d.delayMonths}m</span>
+                  </div>
+                ))
+                : <div className="p-6 text-center text-gray-400 text-sm cursor-pointer hover:bg-red-50 transition-colors" onClick={() => onNavigate?.('relances')}>
+                    <AlertCircle className="h-7 w-7 mx-auto mb-2 text-red-300" />
+                    {urgentCount} donateur{urgentCount > 1 ? 's' : ''} sans contact — voir les relances
+                  </div>
+              }
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm mb-5">
+              <BarChart3 className="h-4 w-4 text-gray-500" /> Évolution mensuelle (6 mois)
+            </h3>
+            <BarChart data={monthlyStats} />
+          </div>
+        </div>
+
+        {/* ── Virements terrain ─────────────────────────────────────────── */}
+        <div
+          onClick={() => onNavigate?.('envois')}
+          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group"
+        >
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Send className="h-4 w-4 text-gray-500" />
+              <h3 className="font-bold text-gray-800 text-sm">Virements terrain</h3>
+            </div>
+            <span className="text-xs text-blue-600 font-semibold group-hover:underline flex items-center gap-1">
+              Voir tout <ArrowUpRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-gray-100">
+            {/* Dernier envoi */}
+            <div className="p-5">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Dernier envoi</p>
+              {envoisStats.last ? (<>
+                <p className="text-2xl font-bold text-gray-900">{envoisStats.lastTotal} €</p>
+                <p className="text-xs text-gray-500 mt-1">{envoisStats.last.destination} · {envoisStats.last.date}</p>
+                <span className={`mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${
+                  envoisStats.last.method === 'remitly'
+                    ? 'bg-violet-50 text-violet-700 border-violet-200'
+                    : 'bg-sky-50 text-sky-700 border-sky-200'
+                }`}>
+                  {envoisStats.last.method === 'remitly' ? 'Remitly' : 'Espèces'}
+                </span>
+              </>) : (
+                <p className="text-sm text-gray-400 mt-1">Aucun envoi</p>
+              )}
+            </div>
+            {/* Prochain planifié */}
+            <div className="p-5">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Prochain planifié</p>
+              {envoisStats.nextPlan ? (<>
+                <p className="text-2xl font-bold text-blue-700">{envoisStats.nextPlanTotal} €</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(envoisStats.nextPlan.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+                <span className="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+                  À venir
+                </span>
+              </>) : (
+                <p className="text-sm text-gray-400 mt-1">—</p>
+              )}
+            </div>
+            {/* Total envoyé */}
+            <div className="p-5">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Total envoyé</p>
+              <p className="text-2xl font-bold text-gray-900">{envoisStats.totalSent.toFixed(0)} €</p>
+              <p className="text-xs text-gray-500 mt-1">{envois.length} envoi{envois.length > 1 ? 's' : ''} enregistré{envois.length > 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── KPIs par projet ────────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+            <FolderOpen className="h-4 w-4 text-gray-500" />
+            <h3 className="font-bold text-gray-800 text-sm">Indicateurs par projet</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {poleStats.map((pole, i) => {
+              const total = pole.activeCount + pole.delayCount;
+              const ret   = total > 0 ? Math.round(pole.activeCount / total * 100) : 100;
+              return (
+                <div key={i} className="p-4">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 truncate">{pole.name}</p>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                      { bg: 'bg-green-50 hover:bg-green-100 border-green-100', icon: <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-green-500" />, val: pole.activeCount, label: 'Donateurs actifs', sub: `${ret}% fidélité`, tc: 'text-green-700', sc: 'text-green-500', nav: 'donors' },
+                      { bg: 'bg-red-50 hover:bg-red-100 border-red-100',       icon: <AlertCircle  className="h-4 w-4 mx-auto mb-1 text-red-500"   />, val: pole.delayCount,  label: 'En retard',       sub: pole.delayedAmount > 0 ? `${pole.delayedAmount} € à récupérer` : 'Aucun impayé', tc: 'text-red-700', sc: 'text-red-500', nav: 'relances' },
+                      { bg: 'bg-blue-50 hover:bg-blue-100 border-blue-100',    icon: <CreditCard   className="h-4 w-4 mx-auto mb-1 text-blue-500"  />, val: `${pole.expected} €`, label: 'Attendu / mois', sub: `${total} donateur${total > 1 ? 's' : ''}`, tc: 'text-blue-700', sc: 'text-blue-500', nav: 'payments' },
+                      { bg: 'bg-orange-50 hover:bg-orange-100 border-orange-100', icon: <Clock      className="h-4 w-4 mx-auto mb-1 text-orange-500" />, val: `${pole.delayedAmount} €`, label: 'Impayés cumulés', sub: pole.arreteCount > 0 ? `${pole.arreteCount} arrêté${pole.arreteCount > 1 ? 's' : ''}` : 'Aucun arrêt', tc: 'text-orange-700', sc: 'text-orange-500', nav: 'relances' },
+                    ].map((card, ci) => (
+                      <div
+                        key={ci}
+                        onClick={() => onNavigate?.(card.nav)}
+                        className={`${card.bg} border rounded-xl p-3 text-center cursor-pointer transition-colors`}
+                      >
+                        {card.icon}
+                        <p className={`text-xl font-bold ${card.tc}`}>{card.val}</p>
+                        <p className={`text-xs ${card.tc} font-medium mt-0.5`}>{card.label}</p>
+                        <p className={`text-xs ${card.sc} mt-0.5`}>{card.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </>)}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          TAB : PAR PROJET (drill-down)
+      ══════════════════════════════════════════════════════════════════════ */}
+      {tab === 'projets' && (
+        <div className="space-y-4">
+
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 text-sm">
+            <button
+              onClick={() => { setDrillPole(null); setDrillYear(null); setDrillMonth(null); }}
+              className={`font-medium ${drillPole ? 'text-blue-600 hover:underline' : 'text-gray-900'}`}
+            >
+              Tous les projets
+            </button>
+            {drillPole && (<>
+              <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+              <button
+                onClick={() => { setDrillYear(null); setDrillMonth(null); }}
+                className={`font-medium truncate max-w-[180px] ${drillYear ? 'text-blue-600 hover:underline' : 'text-gray-900'}`}
+                title={drillPole}
+              >
+                {drillPole}
+              </button>
+            </>)}
+            {drillYear && (<>
+              <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+              <button
+                onClick={() => setDrillMonth(null)}
+                className={`font-medium ${drillMonth ? 'text-blue-600 hover:underline' : 'text-gray-900'}`}
+              >
+                {drillYear}
+              </button>
+            </>)}
+            {drillMonth && (<>
+              <ChevronRight className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+              <span className="font-medium text-gray-900">{MONTH_NAMES[drillMonth - 1]}</span>
+            </>)}
+          </div>
+
+          {/* ── NIVEAU 0 : liste des projets ─────────────────────────────── */}
+          {!drillPole && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+                <p className="text-xs text-gray-500">Cliquez sur un projet pour voir la répartition annuelle, mensuelle et les retardataires.</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {poleStats.map((pole, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setDrillPole(pole.name)}
+                    className="w-full px-5 py-4 flex items-center gap-4 hover:bg-blue-50 transition-colors text-left group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm group-hover:text-blue-700 truncate">{pole.name}</p>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                        <span>{pole.expected} €/mois attendus</span>
+                        <span className="font-bold text-blue-600">{pole.receivedGlobal} € reçus (cumul)</span>
+                        {pole.delayedAmount > 0 && <span className="text-orange-600 font-semibold">{pole.delayedAmount} € impayés</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      {pole.delayCount > 0 && (
+                        <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full border border-red-200">
+                          {pole.delayCount} retard{pole.delayCount > 1 ? 's' : ''}
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-500" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── NIVEAU 1 : années pour le projet sélectionné ─────────────── */}
+          {drillPole && !drillYear && (drillLoading
+            ? <div className="flex items-center justify-center py-12 text-gray-400 gap-2"><Loader2 className="h-5 w-5 animate-spin" /> Chargement…</div>
+            : (() => {
+            const years = getYears(drillPole);
+            const exp = drillExp[drillPole] || 0;
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800 text-sm">Répartition annuelle — {drillPole}</h3>
+                  <span className="text-xs text-gray-400">{exp} €/mois attendus</span>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {years.length === 0
+                    ? <p className="p-8 text-center text-gray-400 text-sm">Aucun paiement enregistré.</p>
+                    : years.map(year => {
+                      const monthsData = drillRec[year] || {};
+                      const totalReceived = Object.values(monthsData).reduce((s, v) => s + v, 0);
+                      const nbMonths = Object.keys(monthsData).length;
+                      const totalExpected = nbMonths * exp;
+                      const rate = totalExpected > 0 ? Math.round(totalReceived / totalExpected * 100) : 0;
+                      return (
+                        <button
+                          key={year}
+                          onClick={() => setDrillYear(year)}
+                          className="w-full px-5 py-4 flex items-center gap-4 hover:bg-blue-50 transition-colors text-left group"
+                        >
+                          <span className="text-2xl font-bold text-gray-300 group-hover:text-blue-200 w-16">{year}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-1.5">
+                              <span className="text-sm font-semibold text-gray-800">{totalReceived} € reçus</span>
+                              <span className="text-xs text-gray-400">/ {totalExpected} € attendus ({nbMonths} mois)</span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${rate >= 90 ? 'bg-green-500' : rate >= 60 ? 'bg-orange-400' : 'bg-red-500'}`}
+                                style={{ width: `${Math.min(rate, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className={`text-sm font-bold ${rate >= 90 ? 'text-green-600' : rate >= 60 ? 'text-orange-500' : 'text-red-600'}`}>{rate}%</span>
+                            <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-500" />
+                          </div>
+                        </button>
+                      );
+                    })
+                  }
+                </div>
+              </div>
+            );
+          })())}
+
+          {/* ── NIVEAU 2 : mois pour le projet+année sélectionnés ────────── */}
+          {drillPole && drillYear && !drillMonth && (() => {
+            const months = getMonthsForYear(drillPole, drillYear);
+            const exp = drillExp[drillPole] || 0;
+            return (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                  <h3 className="font-bold text-gray-800 text-sm">Détail mensuel — {drillYear}</h3>
+                  <span className="text-xs text-gray-400">{exp} €/mois attendus</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200">
+                        <th className="px-5 py-3">Mois</th>
+                        <th className="px-5 py-3 text-right">Attendu</th>
+                        <th className="px-5 py-3 text-right">Reçu</th>
+                        <th className="px-5 py-3 text-right">Bilan</th>
+                        <th className="px-5 py-3 text-right">Taux</th>
+                        <th className="px-5 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {months.map(m => {
+                        const received = drillRec[drillYear]?.[m] || 0;
+                        const balance  = received - exp;
+                        const rate     = exp > 0 ? Math.round(received / exp * 100) : 0;
+                        return (
+                          <tr key={m} className="hover:bg-blue-50 cursor-pointer transition-colors group" onClick={() => setDrillMonth(m)}>
+                            <td className="px-5 py-3.5 font-medium text-gray-800 text-sm">{MONTH_NAMES[m - 1]}</td>
+                            <td className="px-5 py-3.5 text-right text-gray-500 text-sm">{exp} €</td>
+                            <td className="px-5 py-3.5 text-right font-bold text-blue-700 text-sm">{received} €</td>
+                            <td className="px-5 py-3.5 text-right">
+                              {balance >= 0
+                                ? <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700 bg-green-100 border border-green-200 px-2 py-0.5 rounded-md"><TrendingUp className="h-3 w-3" />+{balance} €</span>
+                                : <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 bg-red-100 border border-red-200 px-2 py-0.5 rounded-md"><TrendingDown className="h-3 w-3" />{balance} €</span>
+                              }
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <span className={`text-sm font-bold ${rate >= 90 ? 'text-green-600' : rate >= 60 ? 'text-orange-500' : 'text-red-600'}`}>{rate}%</span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right">
+                              <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-500 ml-auto" />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── NIVEAU 3 : retardataires du mois sélectionné ─────────────── */}
+          {drillPole && drillYear && drillMonth && (() => {
+            const donorsMonth = getDonorsForMonth(drillPole, drillYear, drillMonth);
+            const paid        = donorsMonth.filter(d => d.isPaid);
+            const unpaid      = donorsMonth.filter(d => !d.isPaid);
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold text-green-700">{paid.length}</p>
+                    <p className="text-xs text-green-600 mt-1">Ont payé</p>
+                    <p className="text-xs font-bold text-green-700">{paid.reduce((s, d) => s + d.paidThisMonth, 0)} €</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold text-red-700">{unpaid.length}</p>
+                    <p className="text-xs text-red-600 mt-1">Retardataires</p>
+                    <p className="text-xs font-bold text-red-700">{unpaid.reduce((s, d) => s + d.amount, 0)} € manquants</p>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold text-blue-700">{donorsMonth.length}</p>
+                    <p className="text-xs text-blue-600 mt-1">Donateurs actifs</p>
+                    <p className="text-xs font-bold text-blue-700">{(drillExp[drillPole] || 0)} € attendus</p>
+                  </div>
+                </div>
+
+                {unpaid.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-red-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-red-100 bg-red-50 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      <h3 className="font-bold text-red-800 text-sm">Retardataires — {MONTH_NAMES[drillMonth - 1]} {drillYear}</h3>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {unpaid.map(d => (
+                        <div key={d.id} className="px-5 py-3.5 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">{d.firstName} {d.lastName}</p>
+                            <p className="text-xs text-gray-400">{d.email} · {d.paymentMethod}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-red-600">{d.amount} € non payé</p>
+                            <p className="text-xs text-gray-400">{d.paidThisMonth > 0 ? `${d.paidThisMonth} € partiellement payé` : 'Aucun paiement'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {paid.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-green-200 overflow-hidden">
+                    <div className="px-5 py-3 border-b border-green-100 bg-green-50 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <h3 className="font-bold text-green-800 text-sm">Ont payé — {MONTH_NAMES[drillMonth - 1]} {drillYear}</h3>
+                    </div>
+                    <div className="divide-y divide-gray-100">
+                      {paid.map(d => (
+                        <div key={d.id} className="px-5 py-3.5 flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">{d.firstName} {d.lastName}</p>
+                            <p className="text-xs text-gray-400">{d.email}</p>
+                          </div>
+                          <span className="text-sm font-bold text-green-600">{d.paidThisMonth} € ✓</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          TAB : SORTIES PLANIFIÉES
+      ══════════════════════════════════════════════════════════════════════ */}
+      {tab === 'sorties' && (
+        <div className="space-y-5">
+
+          {/* Summary cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div
+              onClick={() => onNavigate?.('envois')}
+              className="bg-blue-950 text-white rounded-xl p-5 cursor-pointer hover:bg-blue-900 transition-colors"
+            >
+              <p className="text-blue-300 text-xs font-medium uppercase tracking-wider mb-1">Planifiés</p>
+              <p className="text-3xl font-bold">{envoisStats.plannedCount}</p>
+              <p className="text-blue-400 text-xs mt-1">
+                {envoisStats.plannedCount > 0 ? `${Math.round(envoisStats.plannedTotal)} € à envoyer` : 'Aucun virement prévu'}
+              </p>
+            </div>
+            <div
+              onClick={() => onNavigate?.('envois')}
+              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm cursor-pointer hover:border-green-300 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Envoyés</p>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{envoisStats.sentGroups.reduce((s, g) => s + g.envois.length, 0)}</p>
+              <p className="text-xs text-gray-400 mt-1">{Math.round(envoisStats.totalSent)} € envoyés au total</p>
+            </div>
+            <div
+              onClick={() => onNavigate?.('envois')}
+              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm cursor-pointer hover:border-blue-300 hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Send className="h-4 w-4 text-blue-500" />
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Gérer</p>
+              </div>
+              <p className="text-sm font-semibold text-blue-600">Voir tous les virements</p>
+              <p className="text-xs text-gray-400 mt-1">Remitly · Espèces · Planification</p>
+            </div>
+          </div>
+
+          {/* Planned section */}
+          {envoisStats.planned.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border-2 border-dashed border-blue-300 overflow-hidden">
+              <div className="px-5 py-3 border-b border-blue-100 bg-blue-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold bg-blue-600 text-white px-2.5 py-0.5 rounded-full">À VENIR</span>
+                  <h3 className="font-bold text-sm text-blue-800">{envoisStats.planned.length} virement{envoisStats.planned.length > 1 ? 's' : ''} planifié{envoisStats.planned.length > 1 ? 's' : ''}</h3>
+                </div>
+                <span className="text-sm font-bold text-blue-700">{Math.round(envoisStats.plannedTotal)} €</span>
+              </div>
+              <div className="divide-y divide-blue-50">
+                {envoisStats.planned.map(e => {
+                  const total = calcEnvoiTotal(e);
+                  const dateStr = new Date(e.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+                  return (
+                    <div
+                      key={e.id}
+                      onClick={() => onNavigate?.('envois')}
+                      className="px-5 py-3.5 flex items-center gap-4 hover:bg-blue-50 cursor-pointer transition-colors group"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {e.destination} · {e.method === 'remitly' ? 'Remitly' : 'Espèces'}
+                          {e.reference && <span className="text-gray-400 font-mono text-xs ml-2">{e.reference}</span>}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">{dateStr} · {e.items.length} poste{e.items.length > 1 ? 's' : ''}</p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-sm font-bold text-blue-700">{Math.round(total)} €</span>
+                        <ArrowUpRight className="h-4 w-4 text-blue-400 group-hover:text-blue-600" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* No envois at all */}
+          {envois.length === 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+              <Send className="h-8 w-8 mx-auto mb-3 text-gray-200" />
+              <p className="text-gray-400 font-medium text-sm">Aucun virement enregistré</p>
+              <button onClick={() => onNavigate?.('envois')} className="mt-3 text-sm text-blue-600 hover:underline font-semibold">
+                Créer le premier virement →
+              </button>
+            </div>
+          )}
+
+          {/* History grouped by month */}
+          {envoisStats.sentGroups.map(group => (
+            <div key={group.key} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold bg-green-600 text-white px-2.5 py-0.5 rounded-full">ENVOYÉ</span>
+                  <h3 className="font-bold text-sm text-gray-800">{group.label}</h3>
+                  <span className="text-xs text-gray-400">{group.envois.length} virement{group.envois.length > 1 ? 's' : ''}</span>
+                </div>
+                <span className="text-sm font-bold text-gray-700">{Math.round(group.total)} €</span>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {group.envois.map(e => {
+                  const total  = calcEnvoiTotal(e);
+                  const dateStr = new Date(e.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+                  return (
+                    <div
+                      key={e.id}
+                      onClick={() => onNavigate?.('envois')}
+                      className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {e.destination} · {e.method === 'remitly' ? 'Remitly' : 'Espèces'}
+                          {e.reference && <span className="text-gray-400 font-mono text-xs ml-2">{e.reference}</span>}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">{dateStr} · {e.items.length} poste{e.items.length > 1 ? 's' : ''}{e.note ? ` · ${e.note}` : ''}</p>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <span className="text-sm font-bold text-gray-900">{Math.round(total)} €</span>
+                        <CheckCircle2 className="h-4 w-4 text-green-400 group-hover:text-green-600" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

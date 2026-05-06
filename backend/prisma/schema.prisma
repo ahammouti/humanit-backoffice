@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  password     String
+  firstName    String
+  lastName     String
+  role         Role          @default(benevole)
+  createdAt    DateTime      @default(now())
+  activityLogs ActivityLog[]
+}
+
+model Pole {
+  id             String    @id @default(cuid())
+  name           String    @unique
+  helloassoState String?   @default("Public")
+  donors         Donor[]
+  payments       Payment[]
+}
+
+model Donor {
+  id                String           @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String
+  phone             String?
+  poleId            String
+  amount            Float
+  startDate         DateTime
+  lastPayment       DateTime?
+  status            DonorStatus      @default(ACTIF)
+  delayMonths       Int              @default(0)
+  paymentMethod     PaymentMethod
+  notes             String?
+  lastContactDate   DateTime?
+  lastContactResult String?
+  helloassoMemberId String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  helloassoOrderId  String?
+  paymentFrequency  PaymentFrequency @default(ponctuel)
+  deletedAt         DateTime?
+  pole              Pole             @relation(fields: [poleId], references: [id])
+  payments          Payment[]
+  relances          Relance[]
+
+  @@unique([email, poleId])
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  date        DateTime      @default(now())
+  donorId     String
+  poleId      String
+  amount      Float
+  status      PaymentStatus
+  source      PaymentSource
+  reference   String?
+  helloassoId String?       @unique
+  createdAt   DateTime      @default(now())
+  donor       Donor         @relation(fields: [donorId], references: [id])
+  pole        Pole          @relation(fields: [poleId], references: [id])
+}
+
+model Relance {
+  id      String   @id @default(cuid())
+  donorId String
+  date    DateTime @default(now())
+  result  String
+  note    String?
+  donor   Donor    @relation(fields: [donorId], references: [id])
+}
+
+model Envoi {
+  id           String      @id @default(cuid())
+  date         DateTime    @default(now())
+  method       String
+  destination  String
+  status       EnvoiStatus @default(planifie)
+  reference    String?
+  fraisPct     Float?
+  exchangeRate Float?
+  note         String?
+  remitlyId    String?     @unique
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  items        EnvoiItem[]
+}
+
+model EnvoiItem {
+  id      String  @id @default(cuid())
+  envoiId String
+  emoji   String?
+  label   String
+  eur     Float
+  fcfa    Float
+  envoi   Envoi   @relation(fields: [envoiId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  userId    String
+  action    String
+  subject   String
+  details   String?
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Config {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  admin
+  tresorier
+  benevole
+}
+
+enum DonorStatus {
+  ACTIF
+  RETARD
+  ARRETE
+}
+
+enum PaymentMethod {
+  helloasso
+  virement
+}
+
+enum PaymentFrequency {
+  mensuel
+  ponctuel
+}
+
+enum PaymentStatus {
+  Paye
+  Refuse
+  En_attente
+}
+
+enum PaymentSource {
+  helloasso
+  virement
+  manuel
+}
+
+enum EnvoiStatus {
+  planifie
+  envoye
+  en_cours
+}

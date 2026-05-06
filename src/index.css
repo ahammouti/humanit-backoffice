@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+html {
+  color-scheme: light;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background-color: #f9fafb;
+}
+
+/* ─── Dark mode: explicit overrides (same mechanism as the scrollbar) ─── */
+
+/* Backgrounds */
+.dark body                     { background-color: #111827; color: #f9fafb; }
+.dark .bg-white                { background-color: #1f2937 !important; }
+.dark .bg-gray-50              { background-color: #111827 !important; }
+.dark .bg-gray-100             { background-color: #111827 !important; }
+.dark .bg-gray-50\/50          { background-color: rgba(17,24,39,.5) !important; }
+
+/* Headers and nav sections */
+.dark header                   { background-color: #1f2937 !important; border-bottom-color: #374151 !important; }
+
+/* Section / card header rows (bg-gray-50 inside components) */
+.dark .bg-gray-700\/50         { background-color: rgba(55,65,81,.5) !important; }
+
+/* Borders */
+.dark .border-gray-100         { border-color: #374151 !important; }
+.dark .border-gray-200         { border-color: #374151 !important; }
+
+/* Text */
+.dark .text-gray-900           { color: #f3f4f6 !important; }
+.dark .text-gray-800           { color: #e5e7eb !important; }
+.dark .text-gray-700           { color: #d1d5db !important; }
+.dark .text-gray-600           { color: #9ca3af !important; }
+.dark .text-gray-500           { color: #9ca3af !important; }
+.dark .text-gray-400           { color: #6b7280 !important; }
+
+/* Inputs and selects */
+.dark input:not([type=checkbox]):not([type=radio]),
+.dark select,
+.dark textarea                 { background-color: #374151 !important; color: #f3f4f6 !important; border-color: #4b5563 !important; }
+
+/* Divide lines */
+.dark .divide-gray-100 > * + * { border-color: #374151 !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar            { width: 6px; height: 6px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: #d1d5db; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb { background: #4b5563; }
