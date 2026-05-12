@@ -18,7 +18,16 @@ import settingsRoutes from './routes/settings.js';
 
 const app = express();
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+  .split(',').map(s => s.trim());
+app.use(cors({
+  origin: (origin, cb) => {
+    // Autoriser les requêtes sans origin (Postman, Railway health checks, webhooks)
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS bloqué : ${origin}`));
+  },
+  credentials: true,
+}));
 app.use(morgan('dev'));
 
 // Raw body needed for webhook signature verification — must be before express.json()

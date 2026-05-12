@@ -52,6 +52,7 @@ export const syncMembers = async (req, res, next) => {
           amount: 0,
           startDate: new Date(startDate),
           paymentMethod: 'helloasso',
+          paymentFrequency: 'mensuel', // membre HelloAsso = adhésion récurrente
           status: 'ACTIF',
           delayMonths: 0,
           helloassoMemberId: String(m.id ?? ''),
@@ -80,7 +81,14 @@ export const syncPayments = async (req, res, next) => {
     for (const p of payments) {
       const helloassoId = String(p.id);
       const exists = await prisma.payment.findUnique({ where: { helloassoId } });
-      if (exists) { skipped++; continue; }
+      if (exists) {
+        // Rétro-remplissage : si formType manquait lors de la première sync, on le complète
+        if (!exists.formType && p.order?.formType) {
+          await prisma.payment.update({ where: { helloassoId }, data: { formType: p.order.formType } });
+        }
+        skipped++;
+        continue;
+      }
 
       const email = p.payer?.email;
       if (!email) { skipped++; continue; }
@@ -102,6 +110,8 @@ export const syncPayments = async (req, res, next) => {
       let donor = await prisma.donor.findUnique({
         where: { email_poleId: { email, poleId: pole.id } },
       });
+
+      const formType = p.order?.formType ?? null;
 
       if (!donor) {
         donor = await prisma.donor.create({
@@ -129,6 +139,7 @@ export const syncPayments = async (req, res, next) => {
           status: p.state === 'Authorized' ? 'Paye' : 'En_attente',
           source: 'helloasso',
           helloassoId,
+          formType: formType || null,
           date: new Date(p.date),
         },
       });
@@ -174,20 +185,131 @@ export const syncPayments = async (req, res, next) => {
  *   ≥ 2 paiements Payé ou En_attente dans le même pôle → mensuel
  *   < 2 paiements                                       → ponctuel
  */
+/**
+ * Classifie chaque donateur en mensuel/ponctuel, par ordre de priorité :
+ *   1. virement                          → mensuel (récurrent par nature)
+ *   2. formType "Membership"             → mensuel (adhésion HelloAsso)
+ *   3. ≥ 2 paiements consécutifs ≤ 45 j → mensuel (pattern mensuel détecté)
+ *      NB : les dons récurrents ont formType "Donation" comme les dons ponctuels,
+ *           seul l'intervalle entre paiements permet de les distinguer.
+ *   4. Aucun ou 1 seul paiement          → ponctuel
+ *   5. 0 paiement                        → inchangé (conserve syncMembers)
+ */
 async function classifyAndRefreshAll() {
   const donors = await prisma.donor.findMany({
-    include: { payments: { where: { status: { in: ['Paye', 'En_attente'] } } } },
+    include: {
+      payments: {
+        where: { status: { in: ['Paye', 'En_attente'] } },
+        select: { formType: true, date: true },
+        orderBy: { date: 'asc' },
+      },
+    },
   });
 
+  let mensuelCount = 0;
+  let ponctuelsCount = 0;
+
   for (const d of donors) {
-    const freq = d.payments.length >= 2 ? 'mensuel' : 'ponctuel';
-    if (d.paymentFrequency !== freq) {
+    let freq = d.paymentFrequency;
+
+    if (d.paymentMethod === 'virement') {
+      freq = 'mensuel';
+    } else if (d.paymentMethod === 'helloasso') {
+      const pmts = d.payments;
+      if (pmts.length === 0) {
+        // Pas de paiement : on conserve (ex: syncMembers a déjà mis mensuel)
+      } else if (pmts.some(p => p.formType === 'Membership')) {
+        freq = 'mensuel';
+      } else if (pmts.length >= 2) {
+        // Pattern mensuel : au moins deux paiements consécutifs espacés de ≤ 45 jours
+        const hasMonthlyPattern = pmts.some((p, i) => {
+          if (i === 0) return false;
+          const days = (new Date(p.date) - new Date(pmts[i - 1].date)) / 86_400_000;
+          return days <= 45;
+        });
+        freq = hasMonthlyPattern ? 'mensuel' : 'ponctuel';
+      } else {
+        freq = 'ponctuel';
+      }
+    }
+
+    if (freq !== d.paymentFrequency) {
       await prisma.donor.update({ where: { id: d.id }, data: { paymentFrequency: freq } });
     }
+
+    freq === 'mensuel' ? mensuelCount++ : ponctuelsCount++;
     await refreshDonorStatus(prisma, d.id);
   }
-  logger.info(`[HelloAsso] Classification : ${donors.filter(d => d.payments.length >= 2).length} mensuels, ${donors.filter(d => d.payments.length < 2).length} ponctuels`);
+
+  logger.info(`[HelloAsso] Classification : ${mensuelCount} mensuels, ${ponctuelsCount} ponctuels`);
 }
+
+export const debugClassify = async (req, res, next) => {
+  try {
+    const donors = await prisma.donor.findMany({
+      take: 30,
+      include: {
+        payments: {
+          where: { status: { in: ['Paye', 'En_attente'] } },
+          select: { formType: true, date: true, status: true },
+          orderBy: { date: 'asc' },
+        },
+      },
+    });
+
+    const rows = donors.map(d => {
+      const pmts = d.payments;
+      let reason = '';
+      let freq = d.paymentFrequency;
+
+      if (d.paymentMethod === 'virement') {
+        reason = 'virement → mensuel';
+        freq = 'mensuel';
+      } else if (pmts.length === 0) {
+        reason = '0 paiement → inchangé';
+      } else if (pmts.some(p => p.formType === 'Membership')) {
+        reason = 'formType Membership → mensuel';
+        freq = 'mensuel';
+      } else if (pmts.length >= 2) {
+        const intervals = pmts.slice(1).map((p, i) => {
+          const days = Math.round((new Date(p.date) - new Date(pmts[i].date)) / 86_400_000);
+          return days;
+        });
+        const minInterval = Math.min(...intervals);
+        if (minInterval <= 45) {
+          reason = `${pmts.length} pmts, intervalle min ${minInterval}j ≤ 45 → mensuel`;
+          freq = 'mensuel';
+        } else {
+          reason = `${pmts.length} pmts, intervalle min ${minInterval}j > 45 → ponctuel`;
+          freq = 'ponctuel';
+        }
+      } else {
+        reason = '1 seul paiement → ponctuel';
+        freq = 'ponctuel';
+      }
+
+      return {
+        name: `${d.firstName} ${d.lastName}`,
+        method: d.paymentMethod,
+        currentFreq: d.paymentFrequency,
+        computedFreq: freq,
+        paymentCount: pmts.length,
+        formTypes: [...new Set(pmts.map(p => p.formType).filter(Boolean))],
+        dates: pmts.map(p => p.date?.toISOString().slice(0, 10)),
+        reason,
+      };
+    });
+
+    res.json({
+      total: await prisma.donor.count(),
+      mensuel: await prisma.donor.count({ where: { paymentFrequency: 'mensuel' } }),
+      ponctuel: await prisma.donor.count({ where: { paymentFrequency: 'ponctuel' } }),
+      sample: rows,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 export const classifyDonors = async (req, res, next) => {
   try {

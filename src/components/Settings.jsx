@@ -25,6 +25,8 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
   const { isDark, toggleDark } = useApp();
   const [newPole, setNewPole]   = useState('');
   const [dueDay, setDueDay]     = useState(15);
+  const [autoArreteMonths, setAutoArreteMonths] = useState(12);
+  const [autoArreteSaving, setAutoArreteSaving] = useState(false);
   const [simDate, setSimDate]   = useState(() => new Date().toISOString().slice(0, 10));
   const [simResult, setSimResult] = useState(null);
   const [simLoading, setSimLoading] = useState(false);
@@ -32,6 +34,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
   useEffect(() => {
     fetchSettings().then(s => {
       if (s.dueDay) setDueDay(s.dueDay);
+      if (s.autoArreteMonths) setAutoArreteMonths(s.autoArreteMonths);
     }).catch(() => {});
   }, []);
 
@@ -249,12 +252,13 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
       {/* AUTOMATION */}
       <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-          <h3 className="font-bold text-gray-800 dark:text-gray-200">Règle de retard</h3>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Logique appliquée pour le passage automatique en RETARD</p>
+          <h3 className="font-bold text-gray-800 dark:text-gray-200">Règles de statut</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Logique appliquée automatiquement à chaque chargement du tableau de bord</p>
         </div>
-        <div className="p-5">
+        <div className="p-5 space-y-5">
+          {/* Retard rule — fixed */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 p-4 text-sm text-gray-700 dark:text-gray-300 space-y-2">
-            <p className="font-semibold text-gray-800 dark:text-gray-200">Règle fixe — basée sur le calendrier mensuel</p>
+            <p className="font-semibold text-gray-800 dark:text-gray-200">Passage en RETARD — règle fixe</p>
             <ul className="space-y-1.5 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-green-500 font-bold mt-0.5">✓</span>
@@ -266,9 +270,67 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
               </li>
             </ul>
             <p className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-600">
-              Exemple : dernier paiement en mars → avril non payé → <strong>RETARD le 1er mai</strong> (1 mois)
+              Les paiements "En attente" comptent comme payés pour ce calcul.
             </p>
           </div>
+
+          {/* Auto-ARRETE — configurable */}
+          {can('manageUsers') && (
+            <div className="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+              <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+                <p className="font-semibold text-red-800 dark:text-red-300 text-sm">Passage automatique en ARRÊTÉ</p>
+                <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                  Tout donateur mensuel dépassant ce seuil de retard est automatiquement arrêté. Tu peux toujours arrêter manuellement avant ce seuil.
+                </p>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      Seuil d'arrêt automatique
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min="3" max="24" step="1"
+                        value={autoArreteMonths}
+                        onChange={e => setAutoArreteMonths(Number(e.target.value))}
+                        className="flex-1 accent-red-600"
+                      />
+                      <span className="text-sm font-bold text-red-700 dark:text-red-400 w-24 text-right">
+                        {autoArreteMonths} mois
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400 mt-1">
+                      <span>3 mois</span>
+                      <span>24 mois</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 text-xs text-gray-600 dark:text-gray-400">
+                  Avec ce seuil : tout donateur mensuel sans paiement depuis <strong className="text-red-700 dark:text-red-400">{autoArreteMonths} mois ou plus</strong> sera automatiquement mis en ARRÊTÉ au prochain chargement du tableau de bord.
+                </div>
+                <button
+                  onClick={async () => {
+                    setAutoArreteSaving(true);
+                    try {
+                      await updateSettings({ autoArreteMonths });
+                      addNotification(`✅ Seuil d'arrêt automatique mis à jour : ${autoArreteMonths} mois`);
+                    } catch {
+                      addNotification('Erreur lors de la sauvegarde', 'error');
+                    } finally {
+                      setAutoArreteSaving(false);
+                    }
+                  }}
+                  disabled={autoArreteSaving}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  <Save className="h-4 w-4" />
+                  {autoArreteSaving ? 'Sauvegarde...' : 'Appliquer'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

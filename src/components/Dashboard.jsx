@@ -98,12 +98,14 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   [donors, selectedPole]);
 
   // ── KPIs — prefer API stats (instant), fall back to client-side ──────────
-  const totalActive     = apiStats?.kpis.activeCount    ?? filteredDonors.filter(d => d.status === 'ACTIF').length;
-  const totalDelayed    = apiStats?.kpis.delayedCount   ?? filteredDonors.filter(d => d.status === 'RETARD').length;
-  const totalArrete     = apiStats?.kpis.arresteCount   ?? filteredDonors.filter(d => d.status === 'ARRETE').length;
-  const expectedMonthly = apiStats?.kpis.expectedMonthly ?? filteredDonors.filter(d => d.status !== 'ARRETE').reduce((s, d) => s + d.amount, 0);
-  const delayedAmount   = apiStats?.kpis.delayedAmount  ?? filteredDonors.filter(d => d.status === 'RETARD').reduce((s, d) => s + d.amount * d.delayMonths, 0);
-  const retentionRate   = apiStats?.kpis.retentionRate  ?? 0;
+  const totalActive        = apiStats?.kpis.activeCount       ?? filteredDonors.filter(d => d.status === 'ACTIF').length;
+  const totalDelayed       = apiStats?.kpis.delayedCount      ?? filteredDonors.filter(d => d.status === 'RETARD').length;
+  const totalArrete        = apiStats?.kpis.arresteCount      ?? filteredDonors.filter(d => d.status === 'ARRETE').length;
+  const expectedMonthly    = apiStats?.kpis.expectedMonthly   ?? filteredDonors.filter(d => d.status !== 'ARRETE' && d.paymentFrequency === 'mensuel').reduce((s, d) => s + d.amount, 0);
+  const delayedAmount      = apiStats?.kpis.delayedAmount     ?? filteredDonors.filter(d => d.status === 'RETARD').reduce((s, d) => s + d.amount * d.delayMonths, 0);
+  const retentionRate      = apiStats?.kpis.retentionRate     ?? 0;
+  const ponctuelsCount     = apiStats?.kpis.ponctuelsCount    ?? filteredDonors.filter(d => d.paymentFrequency === 'ponctuel' && d.status !== 'ARRETE').length;
+  const ponctuelsThisMonth = apiStats?.kpis.ponctuelsThisMonth ?? 0;
 
   const now                = new Date();
   const currentMonthSearch = `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
@@ -276,11 +278,12 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       </div>
 
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Donateurs Actifs"  value={totalActive}            subtitle={`${retentionRate}% de fidélité`}           icon={<CheckCircle2 />} color="green"  onClick={() => onNavigate?.('donors')} />
-        <StatCard title="En Retard"         value={totalDelayed}           subtitle={`${delayedAmount} € à récupérer`}           icon={<AlertCircle />}  color="red"    onClick={() => onNavigate?.('relances')} />
-        <StatCard title="Attendu / mois"    value={`${expectedMonthly} €`} subtitle={`${totalActive} donateurs engagés`} icon={<CreditCard />}   color="blue"   onClick={() => onNavigate?.('payments')} />
-        <StatCard title="Impayés cumulés"   value={`${delayedAmount} €`}   subtitle={`${totalArrete} arrêté${totalArrete > 1 ? 's' : ''}`} icon={<Clock />} color="orange" onClick={() => onNavigate?.('relances')} />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard title="Donateurs Actifs"  value={totalActive}            subtitle={`${retentionRate}% de fidélité`}                        icon={<CheckCircle2 />} color="green"  onClick={() => onNavigate?.('donors')} />
+        <StatCard title="En Retard"         value={totalDelayed}           subtitle={`${delayedAmount.toLocaleString('fr-FR')} € à récupérer`} icon={<AlertCircle />}  color="red"    onClick={() => onNavigate?.('relances')} />
+        <StatCard title="Attendu / mois"    value={`${expectedMonthly.toLocaleString('fr-FR')} €`} subtitle={`mensuel uniquement`}            icon={<CreditCard />}   color="blue"   onClick={() => onNavigate?.('payments')} />
+        <StatCard title="Impayés cumulés"   value={`${delayedAmount.toLocaleString('fr-FR')} €`}   subtitle={`${totalArrete} arrêté${totalArrete > 1 ? 's' : ''}`} icon={<Clock />} color="orange" onClick={() => onNavigate?.('relances')} />
+        <StatCard title="Dons ponctuels"    value={`${ponctuelsThisMonth.toLocaleString('fr-FR')} €`} subtitle={`${ponctuelsCount} donateur${ponctuelsCount > 1 ? 's' : ''} ce mois`} icon={<Sparkles />} color="purple" onClick={() => onNavigate?.('donors')} />
       </div>
 
       {/* ── TABS ───────────────────────────────────────────────────────────── */}

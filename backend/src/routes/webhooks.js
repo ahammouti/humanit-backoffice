@@ -6,69 +6,108 @@ import logger from '../utils/logger.js';
 
 const router = Router();
 
+async function findOrCreatePoleByName(formName) {
+  if (!formName) return null;
+  let pole = await prisma.pole.findFirst({ where: { name: formName } });
+  if (!pole) pole = await prisma.pole.create({ data: { name: formName } });
+  return pole;
+}
+
 router.post('/helloasso', async (req, res) => {
+  // Répondre 200 immédiatement — HelloAsso retente si pas de réponse rapide
+  res.json({ status: 'received' });
+
   const signature = req.headers['x-helloasso-signature'] ?? '';
   const rawBody = req.body;
 
   if (!verifyWebhookSignature(rawBody, signature)) {
-    logger.warn('[Webhook] Signature HelloAsso invalide');
-    return res.status(401).json({ error: 'Signature invalide' });
+    logger.warn('[Webhook] Signature HelloAsso invalide — ignoré');
+    return;
   }
 
   let event;
   try {
     event = JSON.parse(rawBody.toString());
   } catch {
-    return res.status(400).json({ error: 'Body invalide' });
+    logger.warn('[Webhook] Body non-JSON ignoré');
+    return;
   }
 
   logger.info(`[Webhook] HelloAsso event: ${event.eventType}`);
 
   try {
-    if (event.eventType === 'Payment' && event.data?.state === 'Authorized') {
+    if (event.eventType === 'Payment') {
       const p = event.data;
+      if (!p || p.state !== 'Authorized') return;
+
       const helloassoId = String(p.id);
-
-      // Skip duplicates
       const exists = await prisma.payment.findUnique({ where: { helloassoId } });
-      if (exists) return res.json({ status: 'duplicate' });
+      if (exists) { logger.info('[Webhook] Paiement déjà en base, ignoré'); return; }
 
-      // Try to match donor by email
-      const donor = p.payer?.email
-        ? await prisma.donor.findUnique({ where: { email: p.payer.email } })
-        : null;
+      const email = p.payer?.email;
+      if (!email) { logger.warn('[Webhook] Paiement sans email payer, ignoré'); return; }
+
+      const amount = typeof p.amount === 'number' ? p.amount / 100 : 0;
+      const formName = (p.order?.formName ?? p.order?.formSlug ?? '').trim();
+      const formType = p.order?.formType ?? null;
+
+      const pole = await findOrCreatePoleByName(formName);
+      if (!pole) { logger.warn('[Webhook] Impossible de résoudre le pôle'); return; }
+
+      // Trouver ou créer le donateur (clé unique email+poleId)
+      let donor = await prisma.donor.findUnique({
+        where: { email_poleId: { email, poleId: pole.id } },
+      });
 
       if (!donor) {
-        logger.warn(`[Webhook] Donateur introuvable pour email: ${p.payer?.email}`);
-        return res.json({ status: 'donor_not_found' });
+        donor = await prisma.donor.create({
+          data: {
+            firstName: p.payer.firstName ?? 'Inconnu',
+            lastName:  p.payer.lastName  ?? 'Inconnu',
+            email,
+            poleId: pole.id,
+            amount,
+            startDate: new Date(p.date),
+            paymentMethod: 'helloasso',
+            status: 'ACTIF',
+            delayMonths: 0,
+            helloassoOrderId: String(p.order?.id ?? ''),
+          },
+        });
+        logger.info(`[Webhook] Nouveau donateur créé: ${donor.email} (${pole.name})`);
       }
 
       const payment = await prisma.payment.create({
         data: {
           donorId: donor.id,
-          poleId: donor.poleId,
-          amount: p.amount / 100,
+          poleId:  donor.poleId,
+          amount,
           status: 'Paye',
           source: 'helloasso',
           helloassoId,
+          formType,
           date: new Date(p.date),
         },
       });
 
-      await prisma.donor.update({
-        where: { id: donor.id },
-        data: { lastPayment: payment.date },
-      });
-      await refreshDonorStatus(prisma, donor.id);
+      // Mettre à jour lastPayment si plus récent
+      const current = await prisma.donor.findUnique({ where: { id: donor.id }, select: { lastPayment: true } });
+      if (!current.lastPayment || payment.date > current.lastPayment) {
+        await prisma.donor.update({ where: { id: donor.id }, data: { lastPayment: payment.date } });
+      }
 
-      logger.info(`[Webhook] Paiement créé: ${payment.id} pour ${donor.email}`);
+      await refreshDonorStatus(prisma, donor.id);
+      logger.info(`[Webhook] ✅ Paiement ${helloassoId} enregistré — ${donor.firstName} ${donor.lastName} ${amount}€ (${pole.name})`);
+
+    } else if (event.eventType === 'Order') {
+      // Un order peut contenir plusieurs paiements — pas de traitement supplémentaire nécessaire
+      logger.info(`[Webhook] Order event ignoré (les paiements individuels sont traités via Payment)`);
+    } else {
+      logger.info(`[Webhook] Event type "${event.eventType}" non géré`);
     }
   } catch (err) {
-    logger.error('[Webhook] Erreur traitement:', err);
-    return res.status(500).json({ error: 'Erreur traitement' });
+    logger.error('[Webhook] Erreur traitement:', err.message);
   }
-
-  res.json({ status: 'ok' });
 });
 
 export default router;

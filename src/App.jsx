@@ -38,18 +38,22 @@ export default function App() {
   const [donorsTotal,      setDonorsTotal]      = useState(0);
   const [donorsPage,       setDonorsPage]       = useState(1);
   const [donorsTotalPages, setDonorsTotalPages] = useState(1);
-  const [payments,    setPayments]    = useState([]);
-  const [relances,    setRelances]    = useState([]);
-  const [polesData,   setPolesData]   = useState([]);
+  const [payments,      setPayments]      = useState([]);
+  const [relances,      setRelances]      = useState([]);
+  const [retardDonors,  setRetardDonors]  = useState([]);
+  const [polesData,     setPolesData]     = useState([]);
   const [envois,      setEnvois]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [tabLoading,  setTabLoading]  = useState(null);
   const [urgentCount, setUrgentCount] = useState(0);
   const [dashboardKey, setDashboardKey] = useState(0);
-  const [donorSearch,    setDonorSearch]    = useState('');
-  const [donorStatus,    setDonorStatus]    = useState('all');
-  const [donorMinDelay,  setDonorMinDelay]  = useState('');
-  const [donorPole,      setDonorPole]      = useState('');
+  const [donorSearch,     setDonorSearch]     = useState('');
+  const [donorStatus,     setDonorStatus]     = useState('all');
+  const [donorMinDelay,   setDonorMinDelay]   = useState('');
+  const [donorPole,       setDonorPole]       = useState('');
+  const [donorFrequency,  setDonorFrequency]  = useState('all');
+  const [donorSortBy,     setDonorSortBy]     = useState('lastPayment');
+  const [donorSortOrder,  setDonorSortOrder]  = useState('desc');
   const tabLoaded = useRef({});
 
   const [notifications,   setNotifications]   = useState([]);
@@ -84,7 +88,7 @@ export default function App() {
 
     const run = async () => {
       if (currentTab === 'donors') {
-        await loadDonorsPage(1);
+        await loadDonorsPage(1, { sortBy: donorSortBy, sortOrder: donorSortOrder });
         return;
       }
       setTabLoading(currentTab);
@@ -93,8 +97,13 @@ export default function App() {
           const res = await paymentsApi.getPayments({ page: 1, limit: 50 });
           setPayments(res.data);
         } else if (currentTab === 'relances') {
-          const res = await relancesApi.getRelances();
-          setRelances(res);
+          const [relancesRes, retardRes] = await Promise.all([
+            relancesApi.getRelances(),
+            donorsApi.getDonors({ status: 'RETARD', limit: 500 }),
+          ]);
+          setRelances(relancesRes);
+          setRetardDonors(retardRes.data ?? []);
+          setUrgentCount(retardRes.data?.filter(d => !d.lastContactDate).length ?? 0);
         } else if (currentTab === 'envois') {
           const res = await envoísApi.getEnvois();
           setEnvois(res);
@@ -152,14 +161,17 @@ export default function App() {
     if (!currentUser || !tabLoaded.current['donors']) return;
     const t = setTimeout(() => {
       const overrides = {};
-      if (donorSearch)            overrides.search    = donorSearch;
-      if (donorStatus !== 'all')  overrides.status    = donorStatus;
-      if (donorMinDelay)          overrides.minDelay  = donorMinDelay;
-      if (donorPole)              overrides.pole      = donorPole;
+      if (donorSearch)               overrides.search     = donorSearch;
+      if (donorStatus !== 'all')     overrides.status     = donorStatus;
+      if (donorMinDelay)             overrides.minDelay   = donorMinDelay;
+      if (donorPole)                 overrides.pole       = donorPole;
+      if (donorFrequency !== 'all')  overrides.frequency  = donorFrequency;
+      overrides.sortBy    = donorSortBy;
+      overrides.sortOrder = donorSortOrder;
       loadDonorsPage(1, overrides);
     }, 300);
     return () => clearTimeout(t);
-  }, [donorSearch, donorStatus, donorMinDelay, donorPole]);
+  }, [donorSearch, donorStatus, donorMinDelay, donorPole, donorFrequency, donorSortBy, donorSortOrder]);
 
   // ── DONOR CRUD ──────────────────────────────────────────────────────────
   const addDonor = useCallback(async (data) => {
@@ -181,7 +193,9 @@ export default function App() {
       if (updates.status === 'ARRETE') {
         addNotification('⛔ Donateur marqué comme arrêté. Dashboard mis à jour.', 'warning');
         tabLoaded.current['dashboard'] = false;
+        tabLoaded.current['relances'] = false;
         setDashboardKey((k) => k + 1);
+        setRetardDonors((prev) => prev.filter((d) => d.id !== id));
         dashboardApi.getStats().then(s => setUrgentCount(s.kpis?.urgentCount ?? 0)).catch(() => {});
       }
     } catch {
@@ -348,9 +362,10 @@ export default function App() {
     try {
       const relance = await relancesApi.createRelance(data);
       setRelances((prev) => [...prev, relance]);
-      // Refresh donor contact info
+      // Refresh donor contact info in both lists
       const updated = await donorsApi.getDonor(data.donorId);
       setDonors((prev) => prev.map((d) => d.id === data.donorId ? updated : d));
+      setRetardDonors((prev) => prev.map((d) => d.id === data.donorId ? updated : d));
       const d = donors.find((d) => d.id === data.donorId);
       if (d) logAction(LOG_ACTIONS.ADD_RELANCE, `${d.firstName} ${d.lastName}`, data.result);
     } catch {
@@ -645,16 +660,22 @@ export default function App() {
                   donors={donors} donorsTotal={donorsTotal} donorsPage={donorsPage} donorsTotalPages={donorsTotalPages}
                   onPageChange={(p) => {
                     const overrides = {};
-                    if (donorSearch)           overrides.search   = donorSearch;
-                    if (donorStatus !== 'all') overrides.status   = donorStatus;
-                    if (donorMinDelay)         overrides.minDelay = donorMinDelay;
-                    if (donorPole)             overrides.pole     = donorPole;
+                    if (donorSearch)               overrides.search    = donorSearch;
+                    if (donorStatus !== 'all')     overrides.status    = donorStatus;
+                    if (donorMinDelay)             overrides.minDelay  = donorMinDelay;
+                    if (donorPole)                 overrides.pole      = donorPole;
+                    if (donorFrequency !== 'all')  overrides.frequency = donorFrequency;
+                    overrides.sortBy    = donorSortBy;
+                    overrides.sortOrder = donorSortOrder;
                     loadDonorsPage(p, overrides);
                   }}
                   search={donorSearch} onSearchChange={setDonorSearch}
                   filterStatus={donorStatus} onFilterStatusChange={setDonorStatus}
                   filterDelay={donorMinDelay} onFilterDelayChange={setDonorMinDelay}
                   filterPole={donorPole} onFilterPoleChange={setDonorPole}
+                  filterFrequency={donorFrequency} onFilterFrequencyChange={setDonorFrequency}
+                  sortBy={donorSortBy} sortOrder={donorSortOrder}
+                  onSortChange={(col, order) => { setDonorSortBy(col); setDonorSortOrder(order); }}
                   polesData={polesData}
                   poles={poles}
                   onAdd={addDonor}
@@ -685,7 +706,7 @@ export default function App() {
               )}
               {currentTab === 'relances' && (
                 <Relances
-                  donors={donors} relances={relances}
+                  donors={retardDonors} relances={relances}
                   onAdd={(data) => { addRelance(data); addNotification('📧 Relance enregistrée.'); }}
                   addNotification={addNotification}
                 />

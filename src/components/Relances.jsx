@@ -192,9 +192,13 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
       {tab === 'todo' && (
         <div className="space-y-3">
           {toContact.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center space-y-2">
               <CheckCircle2 className="h-12 w-12 mx-auto text-green-300 dark:text-green-600 mb-3" />
-              <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun donateur en retard. Bravo !</p>
+              <p className="text-gray-700 dark:text-gray-300 font-semibold">Aucun donateur en retard actif.</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">
+                Les donateurs avec un retard important ont été automatiquement passés en <strong>Arrêté</strong>.<br/>
+                Tu peux ajuster ce seuil dans <strong>Paramètres → Règles de statut</strong>.
+              </p>
             </div>
           ) : toContact.map(donor => {
             const daysSince = getDaysSinceContact(donor.lastContactDate);

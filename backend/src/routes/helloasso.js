@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { syncPayments, syncMembers, resetData, refreshAllStatuses, diagnostic, simulateStatuses, classifyDonors, syncForms } from '../controllers/helloassoController.js';
+import { syncPayments, syncMembers, resetData, refreshAllStatuses, diagnostic, simulateStatuses, classifyDonors, syncForms, debugClassify } from '../controllers/helloassoController.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireRole } from '../middleware/permissions.js';
 
@@ -12,6 +12,7 @@ router.get('/diagnostic',       authenticate, requireRole('admin'), diagnostic);
 router.get('/simulate',         authenticate, requireRole('admin'), simulateStatuses);
 router.post('/classify',        authenticate, requireRole('admin'), classifyDonors);
 router.get('/sync-forms',       authenticate, requireRole('admin'), syncForms);
+router.get('/debug-classify',   authenticate, requireRole('admin'), debugClassify);
 router.delete('/reset',         authenticate, requireRole('admin'), resetData);
 
 export default router;

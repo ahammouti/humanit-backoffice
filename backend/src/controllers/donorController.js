@@ -43,7 +43,7 @@ async function resolvePoleId(poleId, poleName) {
 
 export const listDonors = async (req, res, next) => {
   try {
-    const { pole, status, search, frequency, page, limit, minDelay } = req.query;
+    const { pole, status, search, frequency, page, limit, minDelay, sortBy, sortOrder } = req.query;
     const poleCondition = { helloassoState: 'Public' };
     if (pole) poleCondition.name = pole;
     const where = { pole: poleCondition, deletedAt: null };
@@ -64,8 +64,15 @@ export const listDonors = async (req, res, next) => {
     const take = Math.min(parseInt(limit ?? '50', 10), 200);
     const skip = (Math.max(parseInt(page ?? '1', 10), 1) - 1) * take;
 
+    const SORTABLE = { lastPayment: true, amount: true, lastName: true, createdAt: true };
+    const col  = SORTABLE[sortBy] ? sortBy : 'createdAt';
+    const dir  = sortOrder === 'asc' ? 'asc' : 'desc';
+    const orderBy = col === 'lastPayment'
+      ? { lastPayment: { sort: dir, nulls: 'last' } }
+      : { [col]: dir };
+
     const [donors, total] = await Promise.all([
-      prisma.donor.findMany({ where, include: { pole: true }, orderBy: { createdAt: 'desc' }, skip, take }),
+      prisma.donor.findMany({ where, include: { pole: true }, orderBy, skip, take }),
       prisma.donor.count({ where }),
     ]);
 

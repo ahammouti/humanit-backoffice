@@ -344,8 +344,26 @@ function DonorDetail({ donor, poles, onClose, onEdit, onAddPayment, onAddRelance
   );
 }
 
+// ── SORT HEADER ───────────────────────────────────────────────────────────────
+function SortHeader({ col, label, sortBy, sortOrder, onSort, right = false }) {
+  const active = sortBy === col;
+  const next = active && sortOrder === 'desc' ? 'asc' : 'desc';
+  return (
+    <button
+      onClick={() => onSort?.(col, next)}
+      className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide select-none transition-colors ${right ? 'ml-auto' : ''} ${active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+    >
+      {label}
+      <span className="flex flex-col leading-none">
+        <span className={`text-[8px] ${active && sortOrder === 'asc'  ? 'opacity-100' : 'opacity-25'}`}>▲</span>
+        <span className={`text-[8px] ${active && sortOrder === 'desc' ? 'opacity-100' : 'opacity-25'}`}>▼</span>
+      </span>
+    </button>
+  );
+}
+
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donorsTotalPages = 1, onPageChange, search = '', onSearchChange, filterStatus = 'all', onFilterStatusChange, filterDelay = '', onFilterDelayChange, filterPole = '', onFilterPoleChange, polesData = [], poles, onAdd, onUpdate, onBulkUpdateStatus, onBulkDelete, onDelete, onAddPayment, onAddRelance, onRgpdExport, onRgpdDelete, trashedDonors = [], onLoadTrash, onRestoreDonor, onPurgeDonor, addNotification, can, initialOpenDonor, onClearInitialDonor }) {
+export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donorsTotalPages = 1, onPageChange, search = '', onSearchChange, filterStatus = 'all', onFilterStatusChange, filterDelay = '', onFilterDelayChange, filterPole = '', onFilterPoleChange, filterFrequency = 'all', onFilterFrequencyChange, sortBy = 'createdAt', sortOrder = 'desc', onSortChange, polesData = [], poles, onAdd, onUpdate, onBulkUpdateStatus, onBulkDelete, onDelete, onAddPayment, onAddRelance, onRgpdExport, onRgpdDelete, trashedDonors = [], onLoadTrash, onRestoreDonor, onPurgeDonor, addNotification, can, initialOpenDonor, onClearInitialDonor }) {
   const [filterMethod, setFilterMethod] = useState('all');
   const [selectedDonor, setSelectedDonor] = useState(null);
   const [editingDonor, setEditingDonor]   = useState(null);
@@ -564,6 +582,11 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
             <option value="helloasso">HelloAsso</option>
             <option value="virement">Virement</option>
           </select>
+          <select value={filterFrequency} onChange={e => onFilterFrequencyChange?.(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
+            <option value="all">Mensuel + Ponctuel</option>
+            <option value="mensuel">Mensuel uniquement</option>
+            <option value="ponctuel">Ponctuel uniquement</option>
+          </select>
         </div>
       </div>
 
@@ -617,13 +640,13 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
                     title="Tout sélectionner"
                   />
                 </th>
-                <th className="px-4 py-3">Donateur</th>
+                <th className="px-4 py-3"><SortHeader col="lastName" label="Donateur" sortBy={sortBy} sortOrder={sortOrder} onSort={onSortChange} /></th>
                 <th className="px-4 py-3">Pôle</th>
-                <th className="px-4 py-3 text-right">€/mois</th>
+                <th className="px-4 py-3 text-right"><SortHeader col="amount" label="Montant" sortBy={sortBy} sortOrder={sortOrder} onSort={onSortChange} right /></th>
                 <th className="px-4 py-3 text-center">Méthode</th>
                 <th className="px-4 py-3 text-center">Statut</th>
                 <th className="px-4 py-3 text-center">Retard</th>
-                <th className="px-4 py-3">Dernier don</th>
+                <th className="px-4 py-3"><SortHeader col="lastPayment" label="Dernier don" sortBy={sortBy} sortOrder={sortOrder} onSort={onSortChange} /></th>
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
@@ -641,12 +664,25 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
                   <td className="px-4 py-3">
                     <button className="text-left" onClick={() => setSelectedDonor(donor)}>
                       <p className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{donor.firstName} {donor.lastName}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">{donor.email}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{donor.email}</p>
+                        {donor.paymentFrequency === 'ponctuel'
+                          ? <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 font-medium leading-none">Ponctuel</span>
+                          : <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-medium leading-none">Mensuel</span>
+                        }
+                      </div>
                     </button>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 max-w-[160px]"><span className="truncate block" title={donor.pole}>{donor.pole}</span></td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">{donor.amount} €</td>
-                  <td className="px-4 py-3 text-center"><SourceBadge source={donor.paymentMethod} /></td>
+                  <td className="px-4 py-3 text-right">
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{donor.amount} €</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">
+                      {donor.paymentFrequency === 'ponctuel' ? '/don' : '/mois'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <SourceBadge source={donor.paymentMethod} />
+                  </td>
                   <td className="px-4 py-3 text-center"><StatusBadge status={donor.status} /></td>
                   <td className="px-4 py-3 text-center">
                     {donor.delayMonths > 0

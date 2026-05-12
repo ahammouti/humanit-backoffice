@@ -1,7 +1,53 @@
 import prisma from '../config/database.js';
+import { computeStatus } from '../services/donorStatus.js';
+import { getAutoArreteMonths } from './settingsController.js';
+
+// Refresh all non-ARRETE mensuel donors' status based on current date.
+// En_attente payments count as "paid" for delay calculation.
+// Donors with delayMonths >= autoArreteMonths are automatically set to ARRETE.
+const refreshAllStatuses = async () => {
+  const [autoArreteMonths, donors] = await Promise.all([
+    getAutoArreteMonths(),
+    prisma.donor.findMany({
+      where: { deletedAt: null, status: { not: 'ARRETE' }, paymentFrequency: 'mensuel' },
+      select: {
+        id: true, status: true, delayMonths: true, lastPayment: true, startDate: true, paymentFrequency: true,
+        payments: {
+          where: { status: { in: ['Paye', 'En_attente'] } },
+          orderBy: { date: 'desc' },
+          take: 1,
+          select: { date: true },
+        },
+      },
+    }),
+  ]);
+
+  const updates = donors.map(d => {
+    const recentPaymentDate = d.payments[0]?.date ?? null;
+    const effectiveLastPayment =
+      recentPaymentDate && (!d.lastPayment || new Date(recentPaymentDate) > new Date(d.lastPayment))
+        ? recentPaymentDate
+        : d.lastPayment;
+
+    let { status, delayMonths } = computeStatus({ ...d, lastPayment: effectiveLastPayment });
+
+    // Auto-ARRETE if delay exceeds configured threshold
+    if (status === 'RETARD' && delayMonths >= autoArreteMonths) {
+      status = 'ARRETE';
+    }
+
+    if (status !== d.status || delayMonths !== d.delayMonths) {
+      return prisma.donor.update({ where: { id: d.id }, data: { status, delayMonths } });
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (updates.length > 0) await Promise.all(updates);
+};
 
 export const getStats = async (req, res, next) => {
   try {
+    await refreshAllStatuses();
     const { pole } = req.query;
     const donorWhere = { pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' }, deletedAt: null };
 
@@ -25,6 +71,8 @@ export const getStats = async (req, res, next) => {
       expectedByPole, delayedByPole,
       receivedGlobalByPole, receivedThisMonthByPole,
       activeByPole, arreteByPole,
+      // ponctuel stats
+      ponctuelsCount, ponctuelsAnnuelAgg, ponctuelsMonthAgg,
     ] = await Promise.all([
       prisma.donor.count({ where: { ...donorWhere, status: 'ACTIF'  } }),
       prisma.donor.count({ where: { ...donorWhere, status: 'RETARD' } }),
@@ -32,13 +80,21 @@ export const getStats = async (req, res, next) => {
       prisma.donor.count({ where: { ...donorWhere, status: 'RETARD', lastContactDate: null } }),
 
       prisma.donor.aggregate({
-        where: { ...donorWhere, status: { not: 'ARRETE' } },
+        where: { ...donorWhere, status: { not: 'ARRETE' }, paymentFrequency: 'mensuel' },
         _sum: { amount: true },
       }),
 
       prisma.donor.findMany({
         where: { ...donorWhere, status: 'RETARD' },
-        select: { amount: true, delayMonths: true },
+        select: {
+          amount: true, delayMonths: true, lastPayment: true, startDate: true, paymentFrequency: true,
+          payments: {
+            where: { status: { in: ['Paye', 'En_attente'] } },
+            orderBy: { date: 'desc' },
+            take: 1,
+            select: { date: true },
+          },
+        },
       }),
 
       prisma.payment.findMany({
@@ -91,16 +147,24 @@ export const getStats = async (req, res, next) => {
         select: { date: true, fraisPct: true, items: { select: { eur: true } } },
       }),
 
-      // Per-pole expected (non-ARRETE)
+      // Per-pole expected (non-ARRETE, mensuel only)
       prisma.donor.groupBy({
         by: ['poleId'],
-        where: { ...donorWhere, status: { not: 'ARRETE' } },
+        where: { ...donorWhere, status: { not: 'ARRETE' }, paymentFrequency: 'mensuel' },
         _sum: { amount: true },
       }),
       // Per-pole RETARD donors (for delayedAmount + delayCount)
       prisma.donor.findMany({
         where: { ...donorWhere, status: 'RETARD' },
-        select: { poleId: true, amount: true, delayMonths: true },
+        select: {
+          poleId: true, amount: true, delayMonths: true, lastPayment: true, startDate: true, paymentFrequency: true,
+          payments: {
+            where: { status: { in: ['Paye', 'En_attente'] } },
+            orderBy: { date: 'desc' },
+            take: 1,
+            select: { date: true },
+          },
+        },
       }),
       // Per-pole all-time received
       prisma.payment.groupBy({
@@ -126,11 +190,30 @@ export const getStats = async (req, res, next) => {
         where: { ...donorWhere, status: 'ARRETE' },
         _count: { id: true },
       }),
+      // Ponctuel donors count (non-ARRETE)
+      prisma.donor.count({ where: { ...donorWhere, paymentFrequency: 'ponctuel', status: { not: 'ARRETE' } } }),
+      // Ponctuel payments this year
+      prisma.payment.aggregate({
+        where: { status: 'Paye', date: { gte: startOfYear }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
+        _sum: { amount: true },
+      }),
+      // Ponctuel payments this month
+      prisma.payment.aggregate({
+        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
+        _sum: { amount: true },
+      }),
     ]);
 
     const totalDonors     = activeCount + delayedCount + arresteCount;
     const expectedMonthly = expectedAgg._sum.amount ?? 0;
-    const delayedAmount   = delayedDonors.reduce((s, d) => s + d.amount * d.delayMonths, 0);
+    const delayedAmount   = delayedDonors.reduce((s, d) => {
+      const recentPaymentDate = d.payments?.[0]?.date ?? null;
+      const effectiveLastPayment =
+        recentPaymentDate && (!d.lastPayment || new Date(recentPaymentDate) > new Date(d.lastPayment))
+          ? recentPaymentDate : d.lastPayment;
+      const { delayMonths } = computeStatus({ ...d, lastPayment: effectiveLastPayment });
+      return s + d.amount * delayMonths;
+    }, 0);
     const retentionRate   = totalDonors > 0 ? Math.round((activeCount / totalDonors) * 100) : 0;
 
     const calcEnvoiSum = (envois) => envois.reduce((s, e) => {
@@ -185,7 +268,12 @@ export const getStats = async (req, res, next) => {
     const delayAmountMap      = new Map();
     const delayCountMap       = new Map();
     for (const d of delayedByPole) {
-      delayAmountMap.set(d.poleId, (delayAmountMap.get(d.poleId) ?? 0) + d.amount * d.delayMonths);
+      const recentPaymentDate = d.payments?.[0]?.date ?? null;
+      const effectiveLastPayment =
+        recentPaymentDate && (!d.lastPayment || new Date(recentPaymentDate) > new Date(d.lastPayment))
+          ? recentPaymentDate : d.lastPayment;
+      const { delayMonths } = computeStatus({ ...d, lastPayment: effectiveLastPayment });
+      delayAmountMap.set(d.poleId, (delayAmountMap.get(d.poleId) ?? 0) + d.amount * delayMonths);
       delayCountMap.set(d.poleId,  (delayCountMap.get(d.poleId)  ?? 0) + 1);
     }
 
@@ -207,8 +295,11 @@ export const getStats = async (req, res, next) => {
       })
       .filter(p => p.expected > 0 || p.receivedGlobal > 0);
 
+    const ponctuelsThisYear  = ponctuelsAnnuelAgg._sum.amount  ?? 0;
+    const ponctuelsThisMonth = ponctuelsMonthAgg._sum.amount ?? 0;
+
     res.json({
-      kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate },
+      kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate, ponctuelsCount, ponctuelsThisYear, ponctuelsThisMonth },
       monthlyStats,
       byPole,
       byPoleCollected,

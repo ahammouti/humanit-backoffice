@@ -65,6 +65,7 @@ model Payment {
   source      PaymentSource
   reference   String?
   helloassoId String?       @unique
+  formType    String?
   createdAt   DateTime      @default(now())
   donor       Donor         @relation(fields: [donorId], references: [id])
   pole        Pole          @relation(fields: [poleId], references: [id])
