@@ -1,0 +1,33 @@
+name: HelloAsso Auto-Sync
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # toutes les 15 minutes
+  workflow_dispatch:           # déclenchement manuel possible
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Login et sync HelloAsso
+        run: |
+          # Login → récupérer token JWT
+          TOKEN=$(curl -sf -X POST "${{ secrets.API_URL }}/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"${{ secrets.ADMIN_EMAIL }}\",\"password\":\"${{ secrets.ADMIN_PASSWORD }}\"}" \
+            | grep -oE '"token":"[^"]*"' | cut -d'"' -f4)
+
+          if [ -z "$TOKEN" ]; then
+            echo "❌ Login échoué"
+            exit 1
+          fi
+
+          echo "✅ Login OK"
+
+          # Sync paiements HelloAsso
+          RESULT=$(curl -sf "${{ secrets.API_URL }}/api/helloasso/sync" \
+            -H "Authorization: Bearer $TOKEN")
+
+          echo "✅ Sync OK: $RESULT"
