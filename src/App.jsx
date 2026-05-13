@@ -186,7 +186,7 @@ export default function App() {
       overrides.sortBy    = donorSortBy;
       overrides.sortOrder = donorSortOrder;
       loadDonorsPage(1, overrides);
-    }, 300);
+    }, 600);
     return () => clearTimeout(t);
   }, [donorSearch, donorStatus, donorMinDelay, donorPole, donorFrequency, donorSortBy, donorSortOrder]);
 
