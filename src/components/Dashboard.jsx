@@ -102,6 +102,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const [navLoading, setNavLoading]         = useState(false);
   const [refreshing, setRefreshing]         = useState(false);
   const [lastRefresh, setLastRefresh]       = useState(null);
+  const hasStatsRef                         = useRef(false);
   const [drillHistory, setDrillHistory]     = useState(null);
   const [drillLoading, setDrillLoading]     = useState(false);
 
@@ -124,13 +125,10 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ }
-        // Still refetch in background without blocking UI
         setNavLoading(true);
-      } else if (!apiStats) {
-        // First load — no data yet, show full skeleton
+      } else if (!hasStatsRef.current) {
         setStatsLoading(true);
       } else {
-        // Navigation — data exists, just show inline spinner
         setNavLoading(true);
       }
     }
@@ -138,13 +136,14 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     return getStats(params)
       .then(s => {
         setApiStats(s);
+        hasStatsRef.current = true;
         setStatsLoading(false);
         setNavLoading(false);
         setLastRefresh(new Date());
         localStorage.setItem(cacheKey, JSON.stringify(s));
       })
       .catch(() => { setStatsLoading(false); setNavLoading(false); });
-  }, [apiStats]);
+  }, []);
 
   // ── Fetch stats — stale-while-revalidate ────────────────────────────────
   useEffect(() => { fetchStats(selectedPole, { offset: viewOffset, mode: periodMode }); }, [selectedPole, viewOffset, periodMode, fetchStats]);
