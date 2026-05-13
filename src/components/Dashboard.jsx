@@ -15,10 +15,6 @@ function parseDateStr(s) {
   return p.length === 3 ? { month: +p[1], year: +p[2] } : null;
 }
 
-const buildInsight = (a, b, c, d) =>
-  `📊 ${a} donateurs actifs génèrent ${c} €/mois attendus. ` +
-  `⚠️ ${b} retard${b > 1 ? 's' : ''} représentent ${d} € d'impayés (${c > 0 ? Math.round(d / c * 100) : 0}% du mensuel). ` +
-  `💡 Priorisez les relances des donateurs sans contact récent pour maximiser la récupération ce mois-ci.`;
 
 function calcEnvoiTotal(envoi) {
   const sub   = envoi.items.reduce((s, it) => s + (parseFloat(it.eur) || 0), 0);
@@ -73,8 +69,6 @@ function DonutChart({ data, centerLabel, centerValue }) {
 }
 
 export default function Dashboard({ donors, payments, envois = [], selectedPole, periodMode, onGoToRelances, onNavigate }) {
-  const [insight, setInsight]               = useState('');
-  const [loadingInsight, setLoadingInsight] = useState(false);
   const [tab, setTab]                       = useState('global');
   const [drillPole, setDrillPole]           = useState(null);
   const [drillYear, setDrillYear]           = useState(null);
@@ -149,12 +143,6 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     return stats;
   }, [apiStats, payments, selectedPole, expectedMonthly]);
 
-  const handleInsight = async () => {
-    setLoadingInsight(true);
-    await new Promise(r => setTimeout(r, 1500));
-    setInsight(buildInsight(totalActive, totalDelayed, expectedMonthly, delayedAmount));
-    setLoadingInsight(false);
-  };
 
   // ── Lazy-fetch drill history when a pole is selected ─────────────────────
   useEffect(() => {
@@ -256,32 +244,119 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   return (
     <div className="p-6 space-y-6">
 
-      {/* ── AI INSIGHT ─────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-blue-950 to-indigo-900 rounded-xl p-6 text-white relative overflow-hidden">
-        <div className="absolute -top-6 -right-6 opacity-10 pointer-events-none">
-          <Sparkles className="h-32 w-32" />
-        </div>
-        <div className="relative z-10">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-bold text-base flex items-center gap-2 text-blue-100">
-              <Sparkles className="h-5 w-5 text-yellow-400" /> Analyse IA du mois
-            </h3>
-            <button
-              onClick={handleInsight}
-              disabled={loadingInsight}
-              className="text-xs font-semibold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors disabled:opacity-60"
-            >
-              {loadingInsight ? <Loader2 className="h-3 w-3 animate-spin" /> : '✨'} Générer
-            </button>
+      {/* ── SYNTHÈSE DU MOIS ───────────────────────────────────────────────── */}
+      {!statsLoading && apiStats && (() => {
+        const cur  = monthlyStats[monthlyStats.length - 1];
+        const prev = monthlyStats[monthlyStats.length - 2];
+        const delta      = cur && prev ? cur.received - prev.received : null;
+        const collectRate = cur?.expected > 0 ? Math.round(cur.received / cur.expected * 100) : null;
+
+        // Priority actions derived from real data
+        const actions = [];
+        if (urgentCount > 0)
+          actions.push({ icon: '🔴', text: `${urgentCount} donateur${urgentCount > 1 ? 's' : ''} en retard sans aucun contact — relance urgente`, nav: 'relances' });
+        const silentPoles = poleStats.filter(p => p.expected > 0 && p.receivedThisMonth === 0);
+        silentPoles.forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — 0 € reçu ce mois (objectif ${p.expected} €)`, nav: 'donors' }));
+        if (totalArrete > 0)
+          actions.push({ icon: '🟠', text: `${totalArrete} donateur${totalArrete > 1 ? 's arrêtés' : ' arrêté'} — envisager une campagne de réactivation`, nav: 'donors' });
+        if (collectRate !== null && collectRate < 70)
+          actions.push({ icon: '📉', text: `Taux de collecte faible ce mois : ${collectRate}% de l'objectif mensuel atteint`, nav: 'payments' });
+        if (actions.length === 0)
+          actions.push({ icon: '✅', text: 'Aucune alerte critique ce mois — bonne dynamique !', nav: null });
+
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-indigo-500" />
+              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Synthèse du mois</h3>
+              <span className="ml-auto text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">{currentMonthName}</span>
+            </div>
+
+            {/* Metric tiles */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700">
+              {/* Tendance vs mois précédent */}
+              <div className="px-5 py-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">Tendance vs mois préc.</p>
+                {delta !== null ? (
+                  <div className="flex items-center gap-1.5">
+                    {delta >= 0
+                      ? <TrendingUp  className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                      : <TrendingDown className="h-5 w-5 text-red-500 flex-shrink-0" />
+                    }
+                    <span className={`text-xl font-black ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {delta >= 0 ? '+' : ''}{delta.toLocaleString('fr-FR')} €
+                    </span>
+                  </div>
+                ) : <span className="text-xl font-black text-gray-300">—</span>}
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  {prev ? `${prev.month} : ${prev.received.toLocaleString('fr-FR')} €` : '—'}
+                </p>
+              </div>
+
+              {/* Taux de collecte */}
+              <div className="px-5 py-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">Objectif mensuel</p>
+                <div className="flex items-end gap-1.5">
+                  <span className={`text-xl font-black ${
+                    collectRate === null ? 'text-gray-300' :
+                    collectRate >= 90 ? 'text-emerald-600 dark:text-emerald-400' :
+                    collectRate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                  }`}>{collectRate !== null ? `${collectRate}%` : '—'}</span>
+                </div>
+                <div className="mt-1.5 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full w-full">
+                  <div className={`h-1.5 rounded-full transition-all ${
+                    collectRate >= 90 ? 'bg-emerald-500' : collectRate >= 60 ? 'bg-amber-500' : 'bg-red-500'
+                  }`} style={{ width: `${Math.min(100, collectRate ?? 0)}%` }} />
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  {cur ? `${cur.received.toLocaleString('fr-FR')} / ${cur.expected.toLocaleString('fr-FR')} €` : '—'}
+                </p>
+              </div>
+
+              {/* Récupérable */}
+              <div className="px-5 py-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">Récupérable (relances)</p>
+                <span className={`text-xl font-black ${delayedAmount > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {delayedAmount > 0 ? `${delayedAmount.toLocaleString('fr-FR')} €` : '0 €'}
+                </span>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  {totalDelayed} donateur{totalDelayed > 1 ? 's' : ''} en retard
+                </p>
+              </div>
+
+              {/* Fidélité */}
+              <div className="px-5 py-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">Fidélité</p>
+                <span className={`text-xl font-black ${retentionRate >= 75 ? 'text-emerald-600 dark:text-emerald-400' : retentionRate >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {retentionRate}%
+                </span>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  {totalActive} actifs · {totalArrete} arrêtés
+                </p>
+              </div>
+            </div>
+
+            {/* Actions prioritaires */}
+            <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-3 bg-gray-50 dark:bg-gray-800/50">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Actions prioritaires</p>
+              <div className="space-y-1.5">
+                {actions.slice(0, 3).map((a, i) => (
+                  <div
+                    key={i}
+                    onClick={() => a.nav && onNavigate?.(a.nav)}
+                    className={`flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 ${a.nav ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400' : ''} transition-colors`}
+                  >
+                    <span className="flex-shrink-0">{a.icon}</span>
+                    <span>{a.text}</span>
+                    {a.nav && <ChevronRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 ml-auto text-gray-300 dark:text-gray-600" />}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-          {loadingInsight
-            ? <div className="flex items-center gap-2 text-blue-200 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Analyse en cours...</div>
-            : insight
-              ? <p className="text-sm leading-relaxed text-blue-50">{insight}</p>
-              : <p className="text-sm text-blue-400 italic">Cliquez sur "Générer" pour une synthèse intelligente.</p>
-          }
-        </div>
-      </div>
+        );
+      })()}
 
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
