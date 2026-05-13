@@ -604,10 +604,10 @@ export default function App() {
       <main className="flex-1 flex flex-col overflow-hidden md:pb-0 pb-16">
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0 transition-colors duration-200">
           {/* Row 1 — always visible */}
-          <div className="px-3 md:px-5 py-2.5 min-h-[52px] grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <div className="px-3 md:px-5 py-2.5 min-h-[52px] flex items-center">
 
-            {/* Col 1 — Left: title */}
-            <div className="flex items-center gap-2 min-w-0">
+            {/* Left — titre, prend l'espace restant de façon égale avec la droite */}
+            <div className="flex-1 flex items-center gap-2 min-w-0">
               <button
                 onClick={() => setMobileNavOpen(true)}
                 className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 -ml-1 flex-shrink-0"
@@ -625,47 +625,45 @@ export default function App() {
               </h2>
             </div>
 
-            {/* Col 2 — Center: dashboard controls */}
-            <div className="flex items-center justify-center gap-2">
-              {currentTab === 'dashboard' && (
-                <div className="hidden md:flex items-center gap-2">
-                  <select
-                    value={selectedPole ?? ''}
-                    onChange={e => setSelectedPole(e.target.value || null)}
-                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-[160px]"
-                  >
-                    <option value="">Tous les projets</option>
-                    {polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => (
-                      <option key={p.id} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
-                  <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
-                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 gap-0.5">
-                    <button onClick={() => { setPeriodMode('monthly'); setViewOffset(0); }} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
-                      <CalendarDays className="h-3 w-3" /> Mensuel
-                    </button>
-                    <button onClick={() => { setPeriodMode('annual'); setViewOffset(0); }} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
-                      <Calendar className="h-3 w-3" /> Annuel
-                    </button>
-                  </div>
-                  <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setViewOffset(v => v - 1)} className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors" title={periodMode === 'annual' ? 'Année précédente' : 'Mois précédent'}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-full min-w-[72px] text-center tabular-nums">
-                      {viewedLabel}
-                    </span>
-                    <button onClick={() => setViewOffset(v => Math.min(0, v + 1))} disabled={viewOffset >= 0} className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={periodMode === 'annual' ? 'Année suivante' : 'Mois suivant'}>
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
+            {/* Center — contrôles dashboard, taille naturelle */}
+            {currentTab === 'dashboard' && (
+              <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                <select
+                  value={selectedPole ?? ''}
+                  onChange={e => setSelectedPole(e.target.value || null)}
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-40"
+                >
+                  <option value="">Tous les projets</option>
+                  {polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => (
+                    <option key={p.id} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 gap-0.5">
+                  <button onClick={() => { setPeriodMode('monthly'); setViewOffset(0); }} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+                    <CalendarDays className="h-3 w-3" /> Mensuel
+                  </button>
+                  <button onClick={() => { setPeriodMode('annual'); setViewOffset(0); }} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+                    <Calendar className="h-3 w-3" /> Annuel
+                  </button>
                 </div>
-              )}
-            </div>
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setViewOffset(v => v - 1)} className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors" title={periodMode === 'annual' ? 'Année précédente' : 'Mois précédent'}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 px-2.5 py-1 rounded-full w-16 text-center tabular-nums">
+                    {viewedLabel}
+                  </span>
+                  <button onClick={() => setViewOffset(v => Math.min(0, v + 1))} disabled={viewOffset >= 0} className="p-1 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title={periodMode === 'annual' ? 'Année suivante' : 'Mois suivant'}>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* Col 3 — Right: actions */}
-            <div className="flex items-center justify-end gap-2">
+            {/* Right — actions, prend l'espace restant de façon égale avec la gauche */}
+            <div className="flex-1 flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowSearch(true)}
                 className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-lg text-sm transition-colors"
