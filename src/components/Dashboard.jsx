@@ -179,8 +179,19 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const totalDelayed       = apiStats?.kpis.delayedCount      ?? filteredDonors.filter(d => d.status === 'RETARD').length;
   const totalArrete        = apiStats?.kpis.arresteCount      ?? filteredDonors.filter(d => d.status === 'ARRETE').length;
   const expectedMonthly    = apiStats?.kpis.expectedMonthly   ?? filteredDonors.filter(d => d.status !== 'ARRETE' && d.paymentFrequency === 'mensuel').reduce((s, d) => s + d.amount, 0);
-  const delayedAmount      = apiStats?.kpis.delayedAmount     ?? filteredDonors.filter(d => d.status === 'RETARD').reduce((s, d) => s + d.amount * d.delayMonths, 0);
-  const retentionRate      = apiStats?.kpis.retentionRate     ?? 0;
+  const delayedAmountCurrent = apiStats?.kpis.delayedAmount ?? filteredDonors.filter(d => d.status === 'RETARD').reduce((s, d) => s + d.amount * d.delayMonths, 0);
+  // Pour les périodes passées : montant attendu - montant reçu sur la période
+  const delayedAmount      = useMemo(() => {
+    if (!apiStats) return delayedAmountCurrent;
+    const collecte  = periodMode === 'annual' ? apiStats.financials?.collecteAnnuelle : apiStats.financials?.collecteMensuelle;
+    const expected  = periodMode === 'annual' ? expectedMonthly * 12 : expectedMonthly;
+    if (collecte == null || !expected) return delayedAmountCurrent;
+    const gap = Math.max(0, Math.round(expected - collecte));
+    return gap;
+  }, [apiStats, periodMode, expectedMonthly, delayedAmountCurrent]);
+  const retentionRate      = periodMode === 'annual'
+    ? (apiStats?.kpis.fidélitéAnnée ?? apiStats?.kpis.retentionRate ?? 0)
+    : (apiStats?.kpis.fidélitéMois  ?? apiStats?.kpis.retentionRate ?? 0);
   const ponctuelsCount     = apiStats?.kpis.ponctuelsCount    ?? filteredDonors.filter(d => d.paymentFrequency === 'ponctuel' && d.status !== 'ARRETE').length;
   const ponctuelsThisMonth = apiStats?.kpis.ponctuelsThisMonth ?? 0;
 

@@ -81,6 +81,7 @@ export const getStats = async (req, res, next) => {
       // ponctuel stats
       ponctuelsCount, ponctuelsAnnuelAgg, ponctuelsMonthAgg,
       collectePrevYearAgg, yearPayments,
+      donorsPaidMonthRows, donorsPaidYearRows,
     ] = await Promise.all([
       prisma.donor.count({ where: { ...donorWhere, status: 'ACTIF'  } }),
       prisma.donor.count({ where: { ...donorWhere, status: 'RETARD' } }),
@@ -221,6 +222,18 @@ export const getStats = async (req, res, next) => {
         select: { date: true, amount: true },
         orderBy: { date: 'asc' },
       }),
+      // Distinct donors who paid this month (for period-accurate fidélité)
+      prisma.payment.findMany({
+        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...poleFilter },
+        select: { donorId: true },
+        distinct: ['donorId'],
+      }),
+      // Distinct donors who paid this year (for period-accurate fidélité)
+      prisma.payment.findMany({
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
+        select: { donorId: true },
+        distinct: ['donorId'],
+      }),
     ]);
 
     const totalDonors     = activeCount + delayedCount + arresteCount;
@@ -233,7 +246,12 @@ export const getStats = async (req, res, next) => {
       const { delayMonths } = computeStatus({ ...d, lastPayment: effectiveLastPayment });
       return s + d.amount * delayMonths;
     }, 0);
-    const retentionRate   = totalDonors > 0 ? Math.round((activeCount / totalDonors) * 100) : 0;
+    const retentionRate      = totalDonors > 0 ? Math.round((activeCount / totalDonors) * 100) : 0;
+    const donorsPaidMonth    = donorsPaidMonthRows.length;
+    const donorsPaidYear     = donorsPaidYearRows.length;
+    const nonArreteDonors    = activeCount + delayedCount;
+    const fidélitéMois       = nonArreteDonors > 0 ? Math.round(donorsPaidMonth / nonArreteDonors * 100) : 0;
+    const fidélitéAnnée      = nonArreteDonors > 0 ? Math.round(donorsPaidYear  / nonArreteDonors * 100) : 0;
 
     const calcEnvoiSum = (envois) => envois.reduce((s, e) => {
       const sub = e.items.reduce((ss, it) => ss + (it.eur || 0), 0);
@@ -331,7 +349,7 @@ export const getStats = async (req, res, next) => {
     }
 
     res.json({
-      kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate, ponctuelsCount, ponctuelsThisYear, ponctuelsThisMonth },
+      kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate, ponctuelsCount, ponctuelsThisYear, ponctuelsThisMonth, donorsPaidMonth, donorsPaidYear, fidélitéMois, fidélitéAnnée },
       monthlyStats,
       yearlyStats,
       byPole,
