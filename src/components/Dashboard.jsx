@@ -99,6 +99,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const [drillMonth, setDrillMonth]         = useState(null);
   const [apiStats, setApiStats]             = useState(null);
   const [statsLoading, setStatsLoading]     = useState(true);
+  const [navLoading, setNavLoading]         = useState(false);
   const [refreshing, setRefreshing]         = useState(false);
   const [lastRefresh, setLastRefresh]       = useState(null);
   const [drillHistory, setDrillHistory]     = useState(null);
@@ -118,20 +119,32 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     else { d.setDate(1); d.setMonth(d.getMonth() + offset); }
     const params = { ...(pole ? { pole } : {}), year: d.getFullYear(), month: d.getMonth() + 1 };
     const cacheKey = `hm_cache_stats${pole ? '_' + pole : ''}_${params.year}_${params.month}`;
+
     if (!silent) {
       const cached = localStorage.getItem(cacheKey);
-      if (cached) { try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ } }
-      else setStatsLoading(true);
+      if (cached) {
+        try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ }
+        // Still refetch in background without blocking UI
+        setNavLoading(true);
+      } else if (!apiStats) {
+        // First load — no data yet, show full skeleton
+        setStatsLoading(true);
+      } else {
+        // Navigation — data exists, just show inline spinner
+        setNavLoading(true);
+      }
     }
+
     return getStats(params)
       .then(s => {
         setApiStats(s);
         setStatsLoading(false);
+        setNavLoading(false);
         setLastRefresh(new Date());
         localStorage.setItem(cacheKey, JSON.stringify(s));
       })
-      .catch(() => setStatsLoading(false));
-  }, []);
+      .catch(() => { setStatsLoading(false); setNavLoading(false); });
+  }, [apiStats]);
 
   // ── Fetch stats — stale-while-revalidate ────────────────────────────────
   useEffect(() => { fetchStats(selectedPole, { offset: viewOffset, mode: periodMode }); }, [selectedPole, viewOffset, periodMode, fetchStats]);
@@ -309,7 +322,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     <div className="p-3 md:p-6 space-y-4 md:space-y-6">
 
       {/* ── SYNTHÈSE DU MOIS ───────────────────────────────────────────────── */}
-      {!statsLoading && apiStats && (() => {
+      {(!statsLoading || apiStats) && apiStats && (() => {
         const isAnnual = periodMode === 'annual';
         const periodLabel = financialData.periodLabel;
 
@@ -357,7 +370,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
           actions.push({ icon: '✅', text: `Aucune alerte critique ${isAnnual ? 'cette année' : 'ce mois'} — bonne dynamique !`, nav: null });
 
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+          <div className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-opacity duration-200 ${navLoading ? 'opacity-60' : 'opacity-100'}`}>
             {/* Header */}
             <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-indigo-500" />
@@ -371,6 +384,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
               )}
               {/* Period navigation */}
               <div className="ml-auto flex items-center gap-1">
+              {navLoading && <Loader2 className="h-3.5 w-3.5 text-indigo-400 animate-spin mr-1" />}
                 <button
                   onClick={() => setViewOffset(v => v - 1)}
                   className="p-1 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
