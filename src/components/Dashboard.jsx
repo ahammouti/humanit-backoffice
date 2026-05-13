@@ -331,7 +331,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
           const prevYear = apiStats.financials?.collectePrevYear ?? 0;
           if (prevYear > 0 || financialData.collecte > 0) {
             delta    = financialData.collecte - prevYear;
-            deltaRef = `${now.getFullYear() - 1} : ${prevYear.toLocaleString('fr-FR')} €`;
+            deltaRef = `${viewedDate.getFullYear() - 1} : ${prevYear.toLocaleString('fr-FR')} €`;
           }
         } else {
           const cur  = monthlyStats[monthlyStats.length - 1];
