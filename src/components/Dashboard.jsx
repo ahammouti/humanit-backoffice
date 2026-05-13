@@ -181,7 +181,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     ? (periodMode === 'annual' ? (apiStats.kpis.donorsPaidYear ?? 0) : (apiStats.kpis.donorsPaidMonth ?? 0))
     : (apiStats?.kpis.activeCount ?? filteredDonors.filter(d => d.status === 'ACTIF').length);
   const totalDelayed       = !isCurrentPeriod && apiStats
-    ? Math.max(0, nonArreteDonors - totalActive)
+    ? (periodMode === 'annual' ? (apiStats.kpis.notPaidYear ?? 0) : (apiStats.kpis.notPaidMonth ?? 0))
     : (apiStats?.kpis.delayedCount ?? filteredDonors.filter(d => d.status === 'RETARD').length);
   const totalArrete        = apiStats?.kpis.arresteCount      ?? filteredDonors.filter(d => d.status === 'ARRETE').length;
   const expectedMonthly    = apiStats?.kpis.expectedMonthly   ?? filteredDonors.filter(d => d.status !== 'ARRETE' && d.paymentFrequency === 'mensuel').reduce((s, d) => s + d.amount, 0);

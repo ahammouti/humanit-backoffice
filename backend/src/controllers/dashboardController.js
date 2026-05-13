@@ -82,6 +82,7 @@ export const getStats = async (req, res, next) => {
       ponctuelsCount, ponctuelsAnnuelAgg, ponctuelsMonthAgg,
       collectePrevYearAgg, yearPayments,
       donorsPaidMonthRows, donorsPaidYearRows,
+      mensuelsAtEndOfMonth, mensuelsAtEndOfYear,
     ] = await Promise.all([
       prisma.donor.count({ where: { ...donorWhere, status: 'ACTIF'  } }),
       prisma.donor.count({ where: { ...donorWhere, status: 'RETARD' } }),
@@ -222,17 +223,25 @@ export const getStats = async (req, res, next) => {
         select: { date: true, amount: true },
         orderBy: { date: 'asc' },
       }),
-      // Distinct donors who paid this month (for period-accurate fidélité)
+      // Distinct donors who paid this month
       prisma.payment.findMany({
         where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...poleFilter },
         select: { donorId: true },
         distinct: ['donorId'],
       }),
-      // Distinct donors who paid this year (for period-accurate fidélité)
+      // Distinct donors who paid this year
       prisma.payment.findMany({
         where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
         select: { donorId: true },
         distinct: ['donorId'],
+      }),
+      // Mensuel donors who had started by end of month (historical base for "n'ont pas payé")
+      prisma.donor.count({
+        where: { ...donorWhere, paymentFrequency: 'mensuel', startDate: { lte: endOfMonth } },
+      }),
+      // Mensuel donors who had started by end of year
+      prisma.donor.count({
+        where: { ...donorWhere, paymentFrequency: 'mensuel', startDate: { lte: endOfYear } },
       }),
     ]);
 
@@ -250,8 +259,13 @@ export const getStats = async (req, res, next) => {
     const donorsPaidMonth    = donorsPaidMonthRows.length;
     const donorsPaidYear     = donorsPaidYearRows.length;
     const nonArreteDonors    = activeCount + delayedCount;
-    const fidélitéMois       = nonArreteDonors > 0 ? Math.round(donorsPaidMonth / nonArreteDonors * 100) : 0;
-    const fidélitéAnnée      = nonArreteDonors > 0 ? Math.round(donorsPaidYear  / nonArreteDonors * 100) : 0;
+    // Use historical base (donors started by end of period) for fidélité and "n'ont pas payé"
+    const baseMonth          = mensuelsAtEndOfMonth || nonArreteDonors;
+    const baseYear           = mensuelsAtEndOfYear  || nonArreteDonors;
+    const notPaidMonth       = Math.max(0, baseMonth - donorsPaidMonth);
+    const notPaidYear        = Math.max(0, baseYear  - donorsPaidYear);
+    const fidélitéMois       = baseMonth > 0 ? Math.round(donorsPaidMonth / baseMonth * 100) : 0;
+    const fidélitéAnnée      = baseYear  > 0 ? Math.round(donorsPaidYear  / baseYear  * 100) : 0;
 
     const calcEnvoiSum = (envois) => envois.reduce((s, e) => {
       const sub = e.items.reduce((ss, it) => ss + (it.eur || 0), 0);
@@ -349,7 +363,7 @@ export const getStats = async (req, res, next) => {
     }
 
     res.json({
-      kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate, ponctuelsCount, ponctuelsThisYear, ponctuelsThisMonth, donorsPaidMonth, donorsPaidYear, fidélitéMois, fidélitéAnnée },
+      kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate, ponctuelsCount, ponctuelsThisYear, ponctuelsThisMonth, donorsPaidMonth, donorsPaidYear, notPaidMonth, notPaidYear, fidélitéMois, fidélitéAnnée },
       monthlyStats,
       yearlyStats,
       byPole,
