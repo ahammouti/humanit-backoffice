@@ -58,6 +58,7 @@ export const getStats = async (req, res, next) => {
       : realNow;
     const sixMonthsAgo    = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     const startOfYear     = new Date(now.getFullYear(), 0, 1);
+    const endOfYear       = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
     const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth      = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     const startOfPrevYear = new Date(now.getFullYear() - 1, 0, 1);
@@ -131,7 +132,7 @@ export const getStats = async (req, res, next) => {
       prisma.pole.findMany({ select: { id: true, name: true }, where: { helloassoState: 'Public' } }),
 
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
@@ -141,12 +142,12 @@ export const getStats = async (req, res, next) => {
 
       prisma.payment.groupBy({
         by: ['poleId'],
-        where: { status: 'Paye', date: { gte: startOfYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
         _sum: { amount: true },
       }),
 
       prisma.envoi.findMany({
-        where: { status: 'envoye', date: { gte: startOfYear } },
+        where: { status: 'envoye', date: { gte: startOfYear, lte: endOfYear } },
         select: { date: true, fraisPct: true, items: { select: { eur: true } } },
       }),
       prisma.envoi.findMany({
@@ -201,7 +202,7 @@ export const getStats = async (req, res, next) => {
       prisma.donor.count({ where: { ...donorWhere, paymentFrequency: 'ponctuel', status: { not: 'ARRETE' } } }),
       // Ponctuel payments this year
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfYear }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
         _sum: { amount: true },
       }),
       // Ponctuel payments this month
@@ -216,7 +217,7 @@ export const getStats = async (req, res, next) => {
       }),
       // Full year payments (for 12-month chart)
       prisma.payment.findMany({
-        where: { status: 'Paye', date: { gte: startOfYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
         select: { date: true, amount: true },
         orderBy: { date: 'asc' },
       }),
