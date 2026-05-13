@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { gsap } from 'gsap';
 import { getStats, getPoleHistory } from '../api/dashboard.js';
 import {
   CheckCircle2, AlertCircle, Clock, CreditCard,
@@ -25,44 +26,65 @@ function calcEnvoiTotal(envoi) {
 const PALETTE = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899'];
 
 function DonutChart({ data, centerLabel, centerValue }) {
-  const S = 180, cx = S / 2, cy = S / 2, R = 76, r = 46;
+  const S = 180, cx = 90, cy = 90, r = 61, sw = 30;
+  const circ = 2 * Math.PI * r;
   const total = data.reduce((s, d) => s + Math.max(0, d.value), 0);
+  const valid = data.filter(d => d.value > 0);
+  const segsRef = useRef([]);
+  const dataSig = data.map(d => `${d.label}${d.value}`).join();
+
+  useEffect(() => {
+    if (!valid.length) return;
+    let cum = 0;
+    segsRef.current.forEach((el, i) => {
+      if (!el || !valid[i]) return;
+      const segLen = Math.max(0, (valid[i].value / total) * circ - 3);
+      gsap.fromTo(el,
+        { attr: { strokeDasharray: `0 ${circ}` } },
+        { attr: { strokeDasharray: `${segLen} ${circ}` }, duration: 0.75, delay: i * 0.1, ease: 'power3.out' }
+      );
+    });
+  }, [dataSig]);
+
   if (total === 0) return (
     <div className="relative flex-shrink-0" style={{ width: S, height: S }}>
       <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S}>
-        <circle cx={cx} cy={cy} r={(R + r) / 2} fill="none" stroke="#e5e7eb" strokeWidth={R - r} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw} />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <p className="text-xs text-gray-400">Aucune donnée</p>
       </div>
     </div>
   );
-  const slices = [];
-  let angle = -Math.PI / 2;
-  const valid = data.filter(d => d.value > 0);
-  valid.forEach(d => {
-    const sweep = (d.value / total) * 2 * Math.PI * (valid.length > 1 ? 0.97 : 1);
-    const gap   = valid.length > 1 ? (2 * Math.PI * 0.03) / valid.length : 0;
-    const s = angle + gap / 2, e = s + sweep;
-    angle += sweep + gap;
-    const large = sweep > Math.PI ? 1 : 0;
-    const p = [
-      `M ${(cx + R * Math.cos(s)).toFixed(1)} ${(cy + R * Math.sin(s)).toFixed(1)}`,
-      `A ${R} ${R} 0 ${large} 1 ${(cx + R * Math.cos(e)).toFixed(1)} ${(cy + R * Math.sin(e)).toFixed(1)}`,
-      `L ${(cx + r * Math.cos(e)).toFixed(1)} ${(cy + r * Math.sin(e)).toFixed(1)}`,
-      `A ${r} ${r} 0 ${large} 0 ${(cx + r * Math.cos(s)).toFixed(1)} ${(cy + r * Math.sin(s)).toFixed(1)}`,
-      'Z',
-    ].join(' ');
-    slices.push({ ...d, p, pct: Math.round(d.value / total * 100) });
+
+  let cumLen = 0;
+  const segments = valid.map(d => {
+    const segLen = Math.max(0, (d.value / total) * circ - 3);
+    const offset = -cumLen;
+    cumLen += (d.value / total) * circ;
+    return { ...d, segLen, offset };
   });
+
   return (
     <div className="relative flex-shrink-0" style={{ width: S, height: S }}>
-      <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S}>
-        {slices.map((s, i) => <path key={i} d={s.p} fill={s.color} />)}
+      <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw} />
+        {segments.map((seg, i) => (
+          <circle
+            key={i}
+            ref={el => { segsRef.current[i] = el; }}
+            cx={cx} cy={cy} r={r}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={sw - 2}
+            strokeDasharray={`0 ${circ}`}
+            strokeDashoffset={seg.offset}
+          />
+        ))}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         {centerLabel && <p className="text-xs text-gray-400 font-medium">{centerLabel}</p>}
-        {centerValue  && <p className="text-sm font-bold text-gray-900 mt-0.5">{centerValue}</p>}
+        {centerValue  && <p className="text-sm font-bold text-gray-900 dark:text-gray-100 mt-0.5">{centerValue}</p>}
       </div>
     </div>
   );
@@ -70,6 +92,9 @@ function DonutChart({ data, centerLabel, centerValue }) {
 
 export default function Dashboard({ donors, payments, envois = [], selectedPole, periodMode, onGoToRelances, onNavigate }) {
   const [tab, setTab]                       = useState('global');
+  const tabContentRef = useRef(null);
+  const prevTabRef    = useRef(null);
+  const TAB_ORDER     = ['global', 'projets', 'sorties'];
   const [drillPole, setDrillPole]           = useState(null);
   const [drillYear, setDrillYear]           = useState(null);
   const [drillMonth, setDrillMonth]         = useState(null);
@@ -99,6 +124,18 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
   // ── Fetch stats — stale-while-revalidate ────────────────────────────────
   useEffect(() => { fetchStats(selectedPole); }, [selectedPole, fetchStats]);
+
+  // ── GSAP slide entre onglets ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!tabContentRef.current) { prevTabRef.current = tab; return; }
+    if (!prevTabRef.current) { prevTabRef.current = tab; return; }
+    const dir = TAB_ORDER.indexOf(tab) > TAB_ORDER.indexOf(prevTabRef.current) ? 28 : -28;
+    prevTabRef.current = tab;
+    gsap.fromTo(tabContentRef.current,
+      { opacity: 0, x: dir },
+      { opacity: 1, x: 0, duration: 0.26, ease: 'power2.out' }
+    );
+  }, [tab]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -432,6 +469,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       </div>
       </div>
 
+      <div ref={tabContentRef}>
       {/* ══════════════════════════════════════════════════════════════════════
           TAB : VUE GLOBALE
       ══════════════════════════════════════════════════════════════════════ */}
@@ -1092,6 +1130,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
           ))}
         </div>
       )}
+      </div>{/* end tabContentRef */}
     </div>
   );
 }

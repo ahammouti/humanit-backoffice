@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { gsap } from 'gsap';
 import { getDonorPayments, getDonorRelances } from '../api/donors.js';
 import {
   Search, Download, Plus, Edit2, Trash2, Eye,
@@ -366,6 +367,7 @@ function SortHeader({ col, label, sortBy, sortOrder, onSort, right = false }) {
 export default function Donors({ tableLoading = false, donors, donorsTotal = 0, donorsPage = 1, donorsTotalPages = 1, onPageChange, search = '', onSearchChange, filterStatus = 'all', onFilterStatusChange, filterDelay = '', onFilterDelayChange, filterPole = '', onFilterPoleChange, filterFrequency = 'all', onFilterFrequencyChange, sortBy = 'createdAt', sortOrder = 'desc', onSortChange, polesData = [], poles, onAdd, onUpdate, onBulkUpdateStatus, onBulkDelete, onDelete, onAddPayment, onAddRelance, onRgpdExport, onRgpdDelete, trashedDonors = [], onLoadTrash, onRestoreDonor, onPurgeDonor, addNotification, can, initialOpenDonor, onClearInitialDonor }) {
   const [localSearch, setLocalSearch] = useState(search ?? '');
   const [filterMethod, setFilterMethod] = useState('all');
+  const tbodyRef = useRef(null);
   const [selectedDonor, setSelectedDonor] = useState(null);
   const [editingDonor, setEditingDonor]   = useState(null);
   const [isAdding, setIsAdding]           = useState(false);
@@ -383,6 +385,17 @@ export default function Donors({ tableLoading = false, donors, donorsTotal = 0, 
 
   // Réinitialiser sélection au changement de page/filtre
   useEffect(() => { setSelectedIds(new Set()); }, [donors]);
+
+  // GSAP stagger rows
+  useEffect(() => {
+    if (!tbodyRef.current) return;
+    const rows = tbodyRef.current.querySelectorAll('tr');
+    if (!rows.length) return;
+    gsap.fromTo(rows,
+      { opacity: 0, x: -14 },
+      { opacity: 1, x: 0, duration: 0.28, stagger: 0.03, ease: 'power2.out', clearProps: 'all' }
+    );
+  }, [donors]);
 
   // search + status are server-side; only filterMethod is local
   const filtered = filterMethod === 'all' ? donors : donors.filter(d => d.paymentMethod === filterMethod);
@@ -657,7 +670,7 @@ export default function Donors({ tableLoading = false, donors, donorsTotal = 0, 
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className={`divide-y divide-gray-100 dark:divide-gray-700 transition-opacity duration-200 ${tableLoading ? 'opacity-50' : 'opacity-100'}`}>
+            <tbody ref={tbodyRef} className={`divide-y divide-gray-100 dark:divide-gray-700 transition-opacity duration-200 ${tableLoading ? 'opacity-50' : 'opacity-100'}`}>
               {filtered.map(donor => (
                 <tr key={donor.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${selectedIds.has(donor.id) ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}>
                   <td className="pl-4 pr-2 py-3">
