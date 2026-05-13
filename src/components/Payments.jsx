@@ -182,74 +182,58 @@ export default function Payments({ donors, poles, onAdd }) {
       </Modal>
 
       {/* TOOLBAR */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5">
-        <div className="flex flex-wrap gap-3">
-          <div className="relative">
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative flex-1 min-w-[160px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder="Chercher un donateur..."
-              className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-56 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <select
-            value={filterSource}
-            onChange={e => { setFilterSource(e.target.value); }}
-            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          >
+          <select value={filterSource} onChange={e => { setFilterSource(e.target.value); }} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
             <option value="all">Toutes sources</option>
             <option value="helloasso">HelloAsso</option>
             <option value="virement">Virement</option>
             <option value="manuel">Manuel</option>
           </select>
-          <select
-            value={filterStatus}
-            onChange={e => { setFilterStatus(e.target.value); }}
-            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-          >
+          <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); }} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
             <option value="all">Tous statuts</option>
             <option value="Payé">Payé</option>
             <option value="Refusé">Refusé</option>
             <option value="En attente">En attente</option>
           </select>
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={from}
-              onChange={e => setFrom(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-              title="Du"
-            />
+          <div className="flex items-center gap-2 flex-wrap">
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)}
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm min-w-0"
+              title="Du" />
             <span className="text-gray-400 text-sm">→</span>
-            <input
-              type="date"
-              value={to}
-              onChange={e => setTo(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-              title="Au"
-            />
+            <input type="date" value={to} onChange={e => setTo(e.target.value)}
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm min-w-0"
+              title="Au" />
             {(from || to) && (
               <button onClick={() => { setFrom(''); setTo(''); }} className="text-xs text-gray-400 hover:text-red-500 transition-colors">✕</button>
             )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-colors">
-            <Download className="h-4 w-4" /> Exporter CSV
-          </button>
-          <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition-colors">
-            <Plus className="h-4 w-4" /> Paiement manuel
-          </button>
+        <div className="flex justify-between items-center gap-2">
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="text-gray-500 dark:text-gray-400">{total} transaction(s)</span>
+            <span className="text-green-600 dark:text-green-400 font-semibold">{countPaid} payé(s) · {totalPaid} €</span>
+            {countRefused > 0 && <span className="text-red-500 dark:text-red-400 font-medium">{countRefused} refusé(s)</span>}
+          </div>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={handleExport} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm transition-colors">
+              <Download className="h-4 w-4" /> <span className="hidden sm:inline">CSV</span>
+            </button>
+            <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm transition-colors">
+              <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Manuel</span>
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* SUMMARY */}
-      <div className="flex gap-4 mb-4 text-sm">
-        <span className="text-gray-500 dark:text-gray-400">{total} transaction(s) au total</span>
-        <span className="text-green-600 dark:text-green-400 font-semibold">{countPaid} payé(s) · {totalPaid} € <span className="font-normal text-gray-400">(cette page)</span></span>
-        {countRefused > 0 && <span className="text-red-500 dark:text-red-400 font-medium">{countRefused} refusé(s)</span>}
       </div>
 
       {/* TABLE */}

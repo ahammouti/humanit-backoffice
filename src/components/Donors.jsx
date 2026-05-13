@@ -36,11 +36,11 @@ function DonorForm({ initial, poles, onSubmit, onClose }) {
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   return (
     <form onSubmit={e => { e.preventDefault(); onSubmit(form); }} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Prénom" required><Input value={form.firstName} onChange={e => set('firstName', e.target.value)} required /></FormField>
         <FormField label="Nom" required><Input value={form.lastName} onChange={e => set('lastName', e.target.value)} required /></FormField>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="Email" required><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} required /></FormField>
         <FormField label="Téléphone"><Input type="tel" value={form.phone ?? ''} onChange={e => set('phone', e.target.value)} placeholder="+33 6 ..." /></FormField>
       </div>
@@ -50,7 +50,7 @@ function DonorForm({ initial, poles, onSubmit, onClose }) {
           {poles.map(p => <option key={p} value={p}>{p}</option>)}
         </Select>
       </FormField>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <FormField label="Montant (€)" required><Input type="number" min="1" value={form.amount} onChange={e => set('amount', Number(e.target.value))} required /></FormField>
         <FormField label="Méthode">
           <Select value={form.paymentMethod} onChange={e => set('paymentMethod', e.target.value)}>
@@ -535,20 +535,20 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
             {can('delete') && (
               <button
                 onClick={() => { onLoadTrash?.(); setShowTrash(true); }}
-                className="relative flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-600 shadow-sm"
+                className="relative flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-600 shadow-sm"
               >
-                <Trash2 className="h-4 w-4" /> Corbeille
+                <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Corbeille</span>
                 {trashedDonors.length > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">{trashedDonors.length}</span>
                 )}
               </button>
             )}
-            <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-600 shadow-sm">
-              <Download className="h-4 w-4" /> Exporter
+            <button onClick={handleExport} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-600 shadow-sm">
+              <Download className="h-4 w-4" /> <span className="hidden sm:inline">Exporter</span>
             </button>
             {can('edit') && (
-              <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">
-                <Plus className="h-4 w-4" /> Nouveau donateur
+              <button onClick={() => setIsAdding(true)} className="flex items-center gap-2 px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 shadow-sm">
+                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nouveau donateur</span><span className="sm:hidden">Nouveau</span>
               </button>
             )}
           </div>

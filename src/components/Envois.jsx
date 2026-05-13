@@ -672,7 +672,8 @@ export default function Envois({ envois, onAdd, onUpdate, onRefresh }) {
       </div>
 
       {/* ── FILTER TABS ────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl w-fit min-w-max">
         <button onClick={() => setFilter('all')}      className={tabCls('all')}>
           <span className="flex items-center gap-1.5">
             Tous ({envois.length})
@@ -685,6 +686,7 @@ export default function Envois({ envois, onAdd, onUpdate, onRefresh }) {
         <button onClick={() => setFilter('especes')}  className={tabCls('especes')}>
           <span className="flex items-center gap-1.5"><Banknote className="h-3.5 w-3.5" /> Espèces ({stats.especesCount})</span>
         </button>
+      </div>
       </div>
 
       {/* ── EN COURS ───────────────────────────────────────────────────────── */}
@@ -871,7 +873,7 @@ export default function Envois({ envois, onAdd, onUpdate, onRefresh }) {
               </button>
             </div>
             <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-[32px_1fr_100px_130px_32px] bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 gap-2">
+              <div className="grid grid-cols-[28px_1fr_80px_100px_28px] bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 py-2 gap-2">
                 <span title="Emoji">😀</span>
                 <span>Libellé</span>
                 <span className="text-right">EUR</span>
@@ -880,7 +882,7 @@ export default function Envois({ envois, onAdd, onUpdate, onRefresh }) {
               </div>
               <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
                 {form.items.map((it, idx) => (
-                  <div key={it.id} className="grid grid-cols-[32px_1fr_100px_130px_32px] px-3 py-2 gap-2 items-center">
+                  <div key={it.id} className="grid grid-cols-[28px_1fr_80px_100px_28px] px-3 py-2 gap-2 items-center">
                     <input
                       type="text"
                       value={it.emoji}

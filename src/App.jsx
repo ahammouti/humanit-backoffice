@@ -585,68 +585,60 @@ export default function App() {
 
       {/* MAIN */}
       <main className="flex-1 flex flex-col overflow-hidden md:pb-0 pb-16">
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-4 py-2.5 flex items-center gap-2 md:gap-3 shadow-sm flex-shrink-0 transition-colors duration-200 min-h-[52px]">
-          <button
-            onClick={() => setMobileNavOpen(true)}
-            className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 -ml-1 flex-shrink-0"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-shrink-0 truncate">
-            {currentTab === 'dashboard' && "Vue d'ensemble"}
-            {currentTab === 'donors'    && "Donateurs"}
-            {currentTab === 'payments'  && "Paiements"}
-            {currentTab === 'relances'  && "Relances"}
-            {currentTab === 'log'       && "Journal"}
-            {currentTab === 'envois'    && "Virements"}
-            {currentTab === 'settings'  && "Paramètres"}
-          </h2>
-
-          {currentTab === 'dashboard' && (
-            <div className="flex-1 flex items-center justify-center gap-2">
-              <select
-                value={selectedPole ?? ''}
-                onChange={e => setSelectedPole(e.target.value || null)}
-                className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm min-w-[180px] max-w-[260px]"
-              >
-                <option value="">Tous les projets</option>
-                {polesData
-                  .filter(p => !p.helloassoState || p.helloassoState === 'Public')
-                  .map(p => (
-                    <option key={p.id} value={p.name}>{p.name}</option>
-                  ))
-                }
-              </select>
-
-              <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 flex-shrink-0" />
-
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
-                <button
-                  onClick={() => setPeriodMode('monthly')}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                >
-                  <CalendarDays className="h-3 w-3" /> Mensuel
-                </button>
-                <button
-                  onClick={() => setPeriodMode('annual')}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                >
-                  <Calendar className="h-3 w-3" /> Annuel
-                </button>
-              </div>
-            </div>
-          )}
-          {currentTab !== 'dashboard' && <div className="flex-1" />}
-
-          <div className="flex items-center gap-2 flex-shrink-0">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0 transition-colors duration-200">
+          {/* Row 1 — always visible */}
+          <div className="px-3 md:px-4 py-2.5 flex items-center gap-2 md:gap-3 min-h-[52px]">
             <button
-              onClick={() => setShowSearch(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-lg text-sm transition-colors"
+              onClick={() => setMobileNavOpen(true)}
+              className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 -ml-1 flex-shrink-0"
             >
-              <Search className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs">Rechercher</span>
-              <kbd className="hidden sm:inline text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded font-mono">Ctrl K</kbd>
+              <Menu className="h-5 w-5" />
             </button>
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-shrink-0 truncate">
+              {currentTab === 'dashboard' && "Vue d'ensemble"}
+              {currentTab === 'donors'    && "Donateurs"}
+              {currentTab === 'payments'  && "Paiements"}
+              {currentTab === 'relances'  && "Relances"}
+              {currentTab === 'log'       && "Journal"}
+              {currentTab === 'envois'    && "Virements"}
+              {currentTab === 'settings'  && "Paramètres"}
+            </h2>
+
+            {/* Desktop dashboard controls (inline, center) */}
+            {currentTab === 'dashboard' && (
+              <div className="hidden md:flex flex-1 items-center justify-center gap-2">
+                <select
+                  value={selectedPole ?? ''}
+                  onChange={e => setSelectedPole(e.target.value || null)}
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm min-w-[180px] max-w-[260px]"
+                >
+                  <option value="">Tous les projets</option>
+                  {polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => (
+                    <option key={p.id} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+                <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 flex-shrink-0" />
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+                  <button onClick={() => setPeriodMode('monthly')} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+                    <CalendarDays className="h-3 w-3" /> Mensuel
+                  </button>
+                  <button onClick={() => setPeriodMode('annual')} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
+                    <Calendar className="h-3 w-3" /> Annuel
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex-1" />
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => setShowSearch(true)}
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 rounded-lg text-sm transition-colors"
+              >
+                <Search className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs">Rechercher</span>
+                <kbd className="hidden sm:inline text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 px-1.5 py-0.5 rounded font-mono">Ctrl K</kbd>
+              </button>
             <button
               onClick={toggleDark}
               className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors"
@@ -659,7 +651,32 @@ export default function App() {
                 {ROLE_CFG[currentUser.role].label}
               </span>
             )}
+            </div>
           </div>
+
+          {/* Row 2 — Mobile dashboard controls */}
+          {currentTab === 'dashboard' && (
+            <div className="md:hidden flex gap-2 px-3 pb-2.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
+              <select
+                value={selectedPole ?? ''}
+                onChange={e => setSelectedPole(e.target.value || null)}
+                className="flex-1 min-w-0 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+              >
+                <option value="">Tous les projets</option>
+                {polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => (
+                  <option key={p.id} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+                <button onClick={() => setPeriodMode('monthly')} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                  <CalendarDays className="h-3 w-3" /> Mens.
+                </button>
+                <button onClick={() => setPeriodMode('annual')} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'annual' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                  <Calendar className="h-3 w-3" /> Ann.
+                </button>
+              </div>
+            </div>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors duration-200">

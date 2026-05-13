@@ -539,7 +539,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
         </div>
 
         {/* Alerts + Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
             <div className="px-4 py-3 border-b border-red-100 bg-red-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -597,7 +597,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
               Voir tout <ArrowUpRight className="h-3.5 w-3.5" />
             </span>
           </div>
-          <div className="grid grid-cols-3 divide-x divide-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-700">
             {/* Dernier envoi */}
             <div className="p-5">
               <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Dernier envoi</p>

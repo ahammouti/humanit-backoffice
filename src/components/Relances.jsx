@@ -208,65 +208,50 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
       </Modal>
 
       {/* STATS HEADER */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 shadow p-4 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+      <div className="grid grid-cols-3 gap-2 md:gap-4">
+        {[
+          { icon: <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />, bg: 'bg-red-100 dark:bg-red-900/40', val: allRetard.length, label: criticalCount > 0 ? `${criticalCount} critiques` : 'En retard' },
+          { icon: <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />, bg: 'bg-orange-100 dark:bg-orange-900/40', val: `${totalDue.toLocaleString('fr-FR')} €`, label: 'Impayés' },
+          { icon: <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />, bg: 'bg-yellow-100 dark:bg-yellow-900/40', val: neverCount, label: 'Jamais contactés' },
+        ].map((s, i) => (
+          <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 shadow p-3 md:p-4 flex items-center gap-2 md:gap-4">
+            <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center flex-shrink-0 ${s.bg}`}>{s.icon}</div>
+            <div className="min-w-0">
+              <p className="text-lg md:text-2xl font-black text-gray-900 dark:text-white truncate">{s.val}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{s.label}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-2xl font-black text-gray-900 dark:text-white">{allRetard.length}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{criticalCount > 0 ? `dont ${criticalCount} critiques` : 'En retard de paiement'}</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 shadow p-4 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/40 flex items-center justify-center flex-shrink-0">
-            <TrendingDown className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-gray-900 dark:text-white">{totalDue.toLocaleString('fr-FR')} €</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Total impayés à récupérer</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 shadow p-4 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/40 flex items-center justify-center flex-shrink-0">
-            <Clock className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-gray-900 dark:text-white">{neverCount}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500">Jamais contactés</p>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* TABS */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
-          <button onClick={() => setTab('todo')} className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'todo' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-            À relancer ({allRetard.length})
-          </button>
-          <button onClick={() => setTab('history')} className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'history' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-            Historique ({relances.length})
-          </button>
-        </div>
-
-        {tab === 'todo' && (
-          <div className="flex items-center gap-2">
-            {/* Filter chips */}
-            <div className="flex gap-1">
-              {FILTERS.map(f => (
-                <button key={f.id} onClick={() => setFilter(f.id)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors border ${filter === f.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            {/* Sort */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
+            <button onClick={() => setTab('todo')} className={`px-3 md:px-5 py-1.5 md:py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'todo' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+              À relancer ({allRetard.length})
+            </button>
+            <button onClick={() => setTab('history')} className={`px-3 md:px-5 py-1.5 md:py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'history' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+              Historique ({relances.length})
+            </button>
+          </div>
+          {tab === 'todo' && (
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="delay">Tri : délai</option>
-              <option value="amount">Tri : montant dû</option>
-              <option value="never">Tri : jamais contactés</option>
+              className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-shrink-0">
+              <option value="delay">Délai</option>
+              <option value="amount">Montant</option>
+              <option value="never">Jamais contactés</option>
             </select>
+          )}
+        </div>
+        {tab === 'todo' && (
+          <div className="flex gap-1 flex-wrap">
+            {FILTERS.map(f => (
+              <button key={f.id} onClick={() => setFilter(f.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors border ${filter === f.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}>
+                {f.label}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -292,48 +277,51 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
                 {/* Left: delay bar */}
                 <div className="w-1.5 flex-shrink-0" />
 
-                <div className="flex-1 px-4 py-3.5 flex items-center gap-4 min-w-0">
-                  {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${U.avatar}`}>
-                    {donor.firstName[0]}{donor.lastName[0]}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{donor.firstName} {donor.lastName}</p>
-                      <SourceBadge source={donor.paymentMethod} />
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${U.badge}`}>
-                        {never ? 'Jamais contacté' : U.label}
-                      </span>
+                <div className="flex-1 px-3 md:px-4 py-3 min-w-0">
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${U.avatar}`}>
+                      {donor.firstName[0]}{donor.lastName[0]}
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{donor.email} · {donor.pole}</p>
-                    <div className="flex items-center gap-3 mt-1.5">
-                      <div className="flex items-center gap-2 flex-1 max-w-[180px]">
-                        <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
-                          <div className={`h-1.5 rounded-full ${U.bar}`} style={{ width: `${Math.min(100, donor.delayMonths / maxDelay * 100)}%` }} />
-                        </div>
-                        <span className={`text-xs font-bold ${U.text}`}>{donor.delayMonths}m · {(donor.amount * donor.delayMonths).toLocaleString('fr-FR')} €</span>
-                      </div>
-                      {!never && daysSince !== null && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> {daysSince}j · {lastRelance?.result ?? '—'}
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{donor.firstName} {donor.lastName}</p>
+                        <SourceBadge source={donor.paymentMethod} />
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${U.badge}`}>
+                          {never ? 'Jamais contacté' : U.label}
                         </span>
-                      )}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{donor.email} · {donor.pole}</p>
+                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                        <div className="flex items-center gap-2 min-w-[120px] flex-1 max-w-[180px]">
+                          <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
+                            <div className={`h-1.5 rounded-full ${U.bar}`} style={{ width: `${Math.min(100, donor.delayMonths / maxDelay * 100)}%` }} />
+                          </div>
+                          <span className={`text-xs font-bold ${U.text} whitespace-nowrap`}>{donor.delayMonths}m · {(donor.amount * donor.delayMonths).toLocaleString('fr-FR')} €</span>
+                        </div>
+                        {!never && daysSince !== null && (
+                          <span className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> {daysSince}j
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2 flex-shrink-0 items-center">
-                    <button onClick={() => setEmailFor(donor)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 text-xs font-bold rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors">
-                      <Sparkles className="h-3.5 w-3.5" /> Email IA
-                    </button>
-                    <a href={`mailto:${donor.email}`}
-                      className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 transition-colors" title="Ouvrir email">
-                      <Mail className="h-4 w-4" />
-                    </a>
-                    <QuickLogDropdown donor={donor} onQuickLog={handleQuickLog} onFullLog={() => setLogFor(donor)} />
+                    {/* Actions */}
+                    <div className="flex gap-1.5 flex-shrink-0 items-center">
+                      <button onClick={() => setEmailFor(donor)}
+                        className="p-1.5 md:px-3 md:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors"
+                        title="Email IA">
+                        <Sparkles className="h-3.5 w-3.5" />
+                      </button>
+                      <a href={`mailto:${donor.email}`}
+                        className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 transition-colors" title="Ouvrir email">
+                        <Mail className="h-4 w-4" />
+                      </a>
+                      <QuickLogDropdown donor={donor} onQuickLog={handleQuickLog} onFullLog={() => setLogFor(donor)} />
+                    </div>
                   </div>
                 </div>
               </div>
