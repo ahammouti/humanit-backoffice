@@ -76,13 +76,13 @@ export default function ActivityLog({ activityLog }) {
       </p>
 
       {filtered.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center text-gray-400 dark:text-gray-500">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 p-16 text-center text-gray-400 dark:text-gray-500">
           <Clock className="h-10 w-10 mx-auto mb-3 opacity-40" />
           <p className="text-sm">Aucune activité enregistrée.</p>
           <p className="text-xs mt-1">Les actions apparaîtront ici en temps réel.</p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 overflow-hidden">
           <div className="divide-y divide-gray-100 dark:divide-gray-700">
             {filtered.map((entry, i) => {
               const roleCfg = ROLE_CFG[entry.userRole];

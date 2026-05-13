@@ -192,7 +192,7 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
       {tab === 'todo' && (
         <div className="space-y-3">
           {toContact.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-16 text-center space-y-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700 p-16 text-center space-y-2">
               <CheckCircle2 className="h-12 w-12 mx-auto text-green-300 dark:text-green-600 mb-3" />
               <p className="text-gray-700 dark:text-gray-300 font-semibold">Aucun donateur en retard actif.</p>
               <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -261,7 +261,7 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
 
       {/* HISTORY TAB */}
       {tab === 'history' && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
           {relances.length === 0 ? (
             <div className="p-12 text-center text-gray-400 dark:text-gray-500 italic">Aucune relance enregistrée.</div>
           ) : (

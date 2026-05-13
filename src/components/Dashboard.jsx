@@ -409,7 +409,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       {tab === 'global' && (<>
 
         {/* ── FINANCIAL OVERVIEW ─────────────────────────────────────────── */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
           {/* Header */}
           <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
             <BarChart3 className="h-4 w-4 text-gray-400" />
@@ -538,7 +538,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
         {/* Alerts + Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
             <div className="px-4 py-3 border-b border-red-100 bg-red-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-500" />
@@ -573,7 +573,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+          <div className="lg:col-span-2 bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 p-5">
             <h3 className="font-bold text-gray-800 flex items-center gap-2 text-sm mb-5">
               <BarChart3 className="h-4 w-4 text-gray-500" /> Évolution mensuelle (6 mois)
             </h3>
@@ -584,7 +584,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
         {/* ── Virements terrain ─────────────────────────────────────────── */}
         <div
           onClick={() => onNavigate?.('envois')}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group"
+          className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group"
         >
           <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -638,7 +638,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
         </div>
 
         {/* ── KPIs par projet ────────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
             <FolderOpen className="h-4 w-4 text-gray-500" />
             <h3 className="font-bold text-gray-800 text-sm">Indicateurs par projet</h3>
@@ -717,7 +717,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
           {/* ── NIVEAU 0 : liste des projets ─────────────────────────────── */}
           {!drillPole && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
                 <p className="text-xs text-gray-500">Cliquez sur un projet pour voir la répartition annuelle, mensuelle et les retardataires.</p>
               </div>
@@ -757,7 +757,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
             const years = getYears(drillPole);
             const exp = drillExp[drillPole] || 0;
             return (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                   <h3 className="font-bold text-gray-800 text-sm">Répartition annuelle — {drillPole}</h3>
                   <span className="text-xs text-gray-400">{exp} €/mois attendus</span>
@@ -808,7 +808,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
             const months = getMonthsForYear(drillPole, drillYear);
             const exp = drillExp[drillPole] || 0;
             return (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                   <h3 className="font-bold text-gray-800 text-sm">Détail mensuel — {drillYear}</h3>
                   <span className="text-xs text-gray-400">{exp} €/mois attendus</span>
@@ -1024,7 +1024,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
           {/* History grouped by month */}
           {envoisStats.sentGroups.map(group => (
-            <div key={group.key} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div key={group.key} className="bg-white rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold bg-green-600 text-white px-2.5 py-0.5 rounded-full">ENVOYÉ</span>

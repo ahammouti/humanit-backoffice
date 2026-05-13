@@ -55,7 +55,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
     <div className="p-6 max-w-2xl space-y-8">
 
       {/* APPEARANCE */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
           <h3 className="font-bold text-gray-800 dark:text-gray-200">Apparence</h3>
         </div>
@@ -78,7 +78,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
       </section>
 
       {/* POLES */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
           <h3 className="font-bold text-gray-800 dark:text-gray-200">Pôles / Campagnes</h3>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
@@ -141,7 +141,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
       </section>
 
       {/* SIMULATION */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center gap-2">
           <PlayCircle className="h-4 w-4 text-blue-500" />
           <div>
@@ -209,7 +209,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
               )}
 
               {/* Table */}
-              <div className="overflow-auto max-h-72 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="overflow-auto max-h-72 rounded-lg border border-gray-300 dark:border-gray-700">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
                     <tr>
@@ -250,7 +250,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
       </section>
 
       {/* AUTOMATION */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
           <h3 className="font-bold text-gray-800 dark:text-gray-200">Règles de statut</h3>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Logique appliquée automatiquement à chaque chargement du tableau de bord</p>
@@ -336,7 +336,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
 
       {/* USER MANAGEMENT (admin only) */}
       {can('manageUsers') && (
-        <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center gap-2">
             <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
             <h3 className="font-bold text-gray-800 dark:text-gray-200">Gestion des utilisateurs</h3>
@@ -369,7 +369,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
       )}
 
       {/* RGPD */}
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center gap-2">
           <Shield className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           <h3 className="font-bold text-gray-800 dark:text-gray-200">RGPD & Données personnelles</h3>

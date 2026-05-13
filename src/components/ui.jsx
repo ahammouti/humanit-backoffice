@@ -32,7 +32,7 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick
   return (
     <div
       onClick={onClick}
-      className={`bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md ${onClick ? 'cursor-pointer hover:border-blue-300 hover:-translate-y-0.5' : ''}`}
+      className={`bg-white dark:bg-gray-800 p-5 rounded-xl shadow border border-gray-300 dark:border-gray-700 transition-all hover:shadow-md ${onClick ? 'cursor-pointer hover:border-blue-400 hover:-translate-y-0.5' : ''}`}
     >
       <div className="flex items-start justify-between mb-3">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
