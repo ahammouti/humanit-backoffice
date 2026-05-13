@@ -36,7 +36,7 @@ const serialize = (p) => ({
 
 export const listPayments = async (req, res, next) => {
   try {
-    const { donorId, source, status, from, to } = req.query;
+    const { donorId, source, status, from, to, search } = req.query;
     const where = {};
     if (donorId) where.donorId = donorId;
     if (source) where.source = source;
@@ -44,7 +44,16 @@ export const listPayments = async (req, res, next) => {
     if (from || to) {
       where.date = {};
       if (from) where.date.gte = new Date(from);
-      if (to) where.date.lte = new Date(to);
+      if (to)   where.date.lte = new Date(to);
+    }
+    if (search) {
+      where.donor = {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName:  { contains: search, mode: 'insensitive' } },
+          { email:     { contains: search, mode: 'insensitive' } },
+        ],
+      };
     }
 
     const { page, limit } = req.query;

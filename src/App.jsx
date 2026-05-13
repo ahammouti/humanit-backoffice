@@ -699,8 +699,8 @@ export default function App() {
               )}
               {currentTab === 'payments' && (
                 <Payments
-                  payments={payments} donors={donors} poles={poles}
-                  onAdd={(data) => { addPayment(data); addNotification(`✅ Paiement de ${data.amount} € enregistré.`); }}
+                  donors={donors} poles={poles}
+                  onAdd={async (data) => { await addPayment(data); addNotification(`✅ Paiement de ${data.amount} € enregistré.`); }}
                   can={can}
                 />
               )}
