@@ -54,6 +54,15 @@ body {
 /* Divide lines */
 .dark .divide-gray-100 > * + * { border-color: #374151 !important; }
 
+/* ─── Page transitions ─── */
+@keyframes tab-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tab-enter {
+  animation: tab-enter 0.22s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar            { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track      { background: transparent; }

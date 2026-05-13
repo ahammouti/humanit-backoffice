@@ -697,7 +697,7 @@ export default function App() {
               ))}
             </div>
           ) : (
-            <>
+            <div key={currentTab} className="tab-enter">
               {currentTab === 'dashboard' && (
                 <Dashboard
                   key={dashboardKey}
@@ -781,7 +781,7 @@ export default function App() {
                   can={can}
                 />
               )}
-            </>
+            </div>
           )}
         </div>
       </main>
