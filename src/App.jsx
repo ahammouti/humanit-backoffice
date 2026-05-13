@@ -604,7 +604,7 @@ export default function App() {
       <main className="flex-1 flex flex-col overflow-hidden md:pb-0 pb-16">
         <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm flex-shrink-0 transition-colors duration-200">
           {/* Row 1 — always visible */}
-          <div className="px-3 md:px-5 py-2.5 min-h-[52px] grid grid-cols-[1fr_auto_1fr] md:grid-cols-3 items-center gap-2">
+          <div className="px-3 md:px-5 py-2.5 min-h-[52px] grid grid-cols-[1fr_auto_1fr] items-center gap-2">
 
             {/* Col 1 — Left: title */}
             <div className="flex items-center gap-2 min-w-0">
@@ -632,7 +632,7 @@ export default function App() {
                   <select
                     value={selectedPole ?? ''}
                     onChange={e => setSelectedPole(e.target.value || null)}
-                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm min-w-[160px] max-w-[220px]"
+                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-[160px]"
                   >
                     <option value="">Tous les projets</option>
                     {polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => (
