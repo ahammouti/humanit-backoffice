@@ -52,10 +52,12 @@ export const getStats = async (req, res, next) => {
     const donorWhere = { pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' }, deletedAt: null };
 
     const now = new Date();
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    const startOfYear  = new Date(now.getFullYear(), 0, 1);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const sixMonthsAgo    = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const startOfYear     = new Date(now.getFullYear(), 0, 1);
+    const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth      = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const startOfPrevYear = new Date(now.getFullYear() - 1, 0, 1);
+    const endOfPrevYear   = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
     const poleFilter   = { pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' } };
 
     // Parallel aggregations — no full table scans
@@ -73,6 +75,7 @@ export const getStats = async (req, res, next) => {
       activeByPole, arreteByPole,
       // ponctuel stats
       ponctuelsCount, ponctuelsAnnuelAgg, ponctuelsMonthAgg,
+      collectePrevYearAgg, yearPayments,
     ] = await Promise.all([
       prisma.donor.count({ where: { ...donorWhere, status: 'ACTIF'  } }),
       prisma.donor.count({ where: { ...donorWhere, status: 'RETARD' } }),
@@ -202,6 +205,17 @@ export const getStats = async (req, res, next) => {
         where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
         _sum: { amount: true },
       }),
+      // Previous year total (for annual trend)
+      prisma.payment.aggregate({
+        where: { status: 'Paye', date: { gte: startOfPrevYear, lte: endOfPrevYear }, ...poleFilter },
+        _sum: { amount: true },
+      }),
+      // Full year payments (for 12-month chart)
+      prisma.payment.findMany({
+        where: { status: 'Paye', date: { gte: startOfYear }, ...poleFilter },
+        select: { date: true, amount: true },
+        orderBy: { date: 'asc' },
+      }),
     ]);
 
     const totalDonors     = activeCount + delayedCount + arresteCount;
@@ -295,17 +309,31 @@ export const getStats = async (req, res, next) => {
       })
       .filter(p => p.expected > 0 || p.receivedGlobal > 0);
 
-    const ponctuelsThisYear  = ponctuelsAnnuelAgg._sum.amount  ?? 0;
+    const ponctuelsThisYear  = ponctuelsAnnuelAgg._sum.amount ?? 0;
     const ponctuelsThisMonth = ponctuelsMonthAgg._sum.amount ?? 0;
+    const collectePrevYear   = collectePrevYearAgg._sum.amount ?? 0;
+
+    // Yearly stats — all months of current year
+    const yearlyStats = [];
+    for (let m = 0; m < 12; m++) {
+      const start = new Date(now.getFullYear(), m, 1);
+      const end   = new Date(now.getFullYear(), m + 1, 0, 23, 59, 59);
+      const label = start.toLocaleString('fr-FR', { month: 'short' });
+      const received = yearPayments
+        .filter(p => { const pd = new Date(p.date); return pd >= start && pd <= end; })
+        .reduce((s, p) => s + p.amount, 0);
+      yearlyStats.push({ month: label, year: now.getFullYear(), received, expected: expectedMonthly });
+    }
 
     res.json({
       kpis: { activeCount, delayedCount, arresteCount, urgentCount, expectedMonthly, delayedAmount, retentionRate, ponctuelsCount, ponctuelsThisYear, ponctuelsThisMonth },
       monthlyStats,
+      yearlyStats,
       byPole,
       byPoleCollected,
       byPoleStats,
       upcomingEnvois,
-      financials: { collecteAnnuelle, collecteMensuelle, depenseAnnuelle, depenseMensuelle },
+      financials: { collecteAnnuelle, collecteMensuelle, depenseAnnuelle, depenseMensuelle, collectePrevYear },
     });
   } catch (err) {
     next(err);

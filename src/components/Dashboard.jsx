@@ -121,10 +121,10 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const urgentCount = apiStats?.kpis.urgentCount ?? 0;
   const toContact = filteredDonors.filter(d => d.status === 'RETARD' && !d.lastContactDate);
 
-  // ── Monthly stats — prefer API (accurate, no full payments load needed) ──
+  // ── Monthly/yearly stats — switch based on periodMode ───────────────────
   const monthlyStats = useMemo(() => {
+    if (periodMode === 'annual' && apiStats?.yearlyStats?.length) return apiStats.yearlyStats;
     if (apiStats?.monthlyStats?.length) return apiStats.monthlyStats;
-    // Fallback: compute from local payments if available
     const stats = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -134,14 +134,13 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
         .filter(p => {
           if (p.status !== 'Payé') return false;
           const pd = parseDateStr(p.date);
-          return pd && pd.month === m && pd.year === y &&
-            (!selectedPole || p.pole === selectedPole);
+          return pd && pd.month === m && pd.year === y && (!selectedPole || p.pole === selectedPole);
         })
         .reduce((s, p) => s + p.amount, 0);
       stats.push({ month: MONTH_NAMES[d.getMonth()].slice(0, 3), year: y, received, expected: expectedMonthly });
     }
     return stats;
-  }, [apiStats, payments, selectedPole, expectedMonthly]);
+  }, [apiStats, periodMode, payments, selectedPole, expectedMonthly]);
 
 
   // ── Lazy-fetch drill history when a pole is selected ─────────────────────
@@ -246,72 +245,98 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
       {/* ── SYNTHÈSE DU MOIS ───────────────────────────────────────────────── */}
       {!statsLoading && apiStats && (() => {
-        const cur  = monthlyStats[monthlyStats.length - 1];
-        const prev = monthlyStats[monthlyStats.length - 2];
-        const delta      = cur && prev ? cur.received - prev.received : null;
-        const collectRate = cur?.expected > 0 ? Math.round(cur.received / cur.expected * 100) : null;
+        const isAnnual = periodMode === 'annual';
+        const periodLabel = financialData.periodLabel;
 
-        // Priority actions derived from real data
+        // Tendance
+        let delta = null, deltaRef = null;
+        if (isAnnual) {
+          const prevYear = apiStats.financials?.collectePrevYear ?? 0;
+          if (prevYear > 0 || financialData.collecte > 0) {
+            delta    = financialData.collecte - prevYear;
+            deltaRef = `${now.getFullYear() - 1} : ${prevYear.toLocaleString('fr-FR')} €`;
+          }
+        } else {
+          const cur  = monthlyStats[monthlyStats.length - 1];
+          const prev = monthlyStats[monthlyStats.length - 2];
+          if (cur && prev) {
+            delta    = cur.received - prev.received;
+            deltaRef = `${prev.month} : ${prev.received.toLocaleString('fr-FR')} €`;
+          }
+        }
+
+        // Taux de collecte
+        const collectExpected = isAnnual ? expectedMonthly * 12 : expectedMonthly;
+        const collectActual   = financialData.collecte;
+        const collectRate     = collectExpected > 0 ? Math.round(collectActual / collectExpected * 100) : null;
+        const collectDetail   = collectExpected > 0
+          ? `${collectActual.toLocaleString('fr-FR')} / ${collectExpected.toLocaleString('fr-FR')} €`
+          : '—';
+
+        // Priority actions
         const actions = [];
         if (urgentCount > 0)
-          actions.push({ icon: '🔴', text: `${urgentCount} donateur${urgentCount > 1 ? 's' : ''} en retard sans aucun contact — relance urgente`, nav: 'relances' });
-        const silentPoles = poleStats.filter(p => p.expected > 0 && p.receivedThisMonth === 0);
-        silentPoles.forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — 0 € reçu ce mois (objectif ${p.expected} €)`, nav: 'donors' }));
+          actions.push({ icon: '🔴', text: `${urgentCount} donateur${urgentCount > 1 ? 's' : ''} en retard sans contact — relance urgente`, nav: 'relances' });
+        if (!isAnnual) {
+          const silentPoles = poleStats.filter(p => p.expected > 0 && p.receivedThisMonth === 0);
+          silentPoles.forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — 0 € reçu ce mois (objectif ${p.expected} €)`, nav: 'donors' }));
+        } else {
+          const weakPoles = poleStats.filter(p => p.expected > 0 && p.receivedGlobal < p.expected * (now.getMonth() + 1) * 0.5);
+          weakPoles.slice(0, 2).forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — ${p.receivedGlobal.toLocaleString('fr-FR')} € reçus (retard cumulé)`, nav: 'donors' }));
+        }
         if (totalArrete > 0)
-          actions.push({ icon: '🟠', text: `${totalArrete} donateur${totalArrete > 1 ? 's arrêtés' : ' arrêté'} — envisager une campagne de réactivation`, nav: 'donors' });
+          actions.push({ icon: '🟠', text: `${totalArrete} donateur${totalArrete > 1 ? 's arrêtés' : ' arrêté'} — campagne de réactivation recommandée`, nav: 'donors' });
         if (collectRate !== null && collectRate < 70)
-          actions.push({ icon: '📉', text: `Taux de collecte faible ce mois : ${collectRate}% de l'objectif mensuel atteint`, nav: 'payments' });
+          actions.push({ icon: '📉', text: `Taux de collecte ${isAnnual ? 'annuel' : 'mensuel'} faible : ${collectRate}% de l'objectif atteint`, nav: 'payments' });
         if (actions.length === 0)
-          actions.push({ icon: '✅', text: 'Aucune alerte critique ce mois — bonne dynamique !', nav: null });
+          actions.push({ icon: '✅', text: `Aucune alerte critique ${isAnnual ? 'cette année' : 'ce mois'} — bonne dynamique !`, nav: null });
 
         return (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             {/* Header */}
             <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-indigo-500" />
-              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">Synthèse du mois</h3>
-              <span className="ml-auto text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">{currentMonthName}</span>
+              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">
+                Synthèse {isAnnual ? 'de l\'année' : 'du mois'}
+              </h3>
+              <span className="ml-auto text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">
+                {periodLabel}
+              </span>
             </div>
 
             {/* Metric tiles */}
             <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700">
-              {/* Tendance vs mois précédent */}
+              {/* Tendance */}
               <div className="px-5 py-4">
-                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">Tendance vs mois préc.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">
+                  Tendance vs {isAnnual ? 'an préc.' : 'mois préc.'}
+                </p>
                 {delta !== null ? (
                   <div className="flex items-center gap-1.5">
-                    {delta >= 0
-                      ? <TrendingUp  className="h-5 w-5 text-emerald-500 flex-shrink-0" />
-                      : <TrendingDown className="h-5 w-5 text-red-500 flex-shrink-0" />
-                    }
+                    {delta >= 0 ? <TrendingUp className="h-5 w-5 text-emerald-500 flex-shrink-0" /> : <TrendingDown className="h-5 w-5 text-red-500 flex-shrink-0" />}
                     <span className={`text-xl font-black ${delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                       {delta >= 0 ? '+' : ''}{delta.toLocaleString('fr-FR')} €
                     </span>
                   </div>
-                ) : <span className="text-xl font-black text-gray-300">—</span>}
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  {prev ? `${prev.month} : ${prev.received.toLocaleString('fr-FR')} €` : '—'}
-                </p>
+                ) : <span className="text-xl font-black text-gray-300 dark:text-gray-600">—</span>}
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{deltaRef ?? '—'}</p>
               </div>
 
               {/* Taux de collecte */}
               <div className="px-5 py-4">
-                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">Objectif mensuel</p>
-                <div className="flex items-end gap-1.5">
-                  <span className={`text-xl font-black ${
-                    collectRate === null ? 'text-gray-300' :
-                    collectRate >= 90 ? 'text-emerald-600 dark:text-emerald-400' :
-                    collectRate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
-                  }`}>{collectRate !== null ? `${collectRate}%` : '—'}</span>
-                </div>
-                <div className="mt-1.5 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full w-full">
-                  <div className={`h-1.5 rounded-full transition-all ${
-                    collectRate >= 90 ? 'bg-emerald-500' : collectRate >= 60 ? 'bg-amber-500' : 'bg-red-500'
-                  }`} style={{ width: `${Math.min(100, collectRate ?? 0)}%` }} />
-                </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  {cur ? `${cur.received.toLocaleString('fr-FR')} / ${cur.expected.toLocaleString('fr-FR')} €` : '—'}
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">
+                  Objectif {isAnnual ? 'annuel' : 'mensuel'}
                 </p>
+                <span className={`text-xl font-black ${
+                  collectRate === null ? 'text-gray-300 dark:text-gray-600' :
+                  collectRate >= 90 ? 'text-emerald-600 dark:text-emerald-400' :
+                  collectRate >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
+                }`}>{collectRate !== null ? `${collectRate}%` : '—'}</span>
+                <div className="mt-1.5 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full">
+                  <div className={`h-1.5 rounded-full transition-all ${collectRate >= 90 ? 'bg-emerald-500' : collectRate >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                    style={{ width: `${Math.min(100, collectRate ?? 0)}%` }} />
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{collectDetail}</p>
               </div>
 
               {/* Récupérable */}
@@ -342,9 +367,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Actions prioritaires</p>
               <div className="space-y-1.5">
                 {actions.slice(0, 3).map((a, i) => (
-                  <div
-                    key={i}
-                    onClick={() => a.nav && onNavigate?.(a.nav)}
+                  <div key={i} onClick={() => a.nav && onNavigate?.(a.nav)}
                     className={`flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 ${a.nav ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400' : ''} transition-colors`}
                   >
                     <span className="flex-shrink-0">{a.icon}</span>
