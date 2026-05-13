@@ -4,7 +4,7 @@ import { getStats, getPoleHistory } from '../api/dashboard.js';
 import {
   CheckCircle2, AlertCircle, Clock, CreditCard,
   TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2,
-  ChevronRight, Send, Globe, FolderOpen, ArrowUpRight, RefreshCw,
+  ChevronRight, ChevronLeft, Send, Globe, FolderOpen, ArrowUpRight, RefreshCw,
 } from 'lucide-react';
 import { StatCard, BarChart } from './ui';
 
@@ -93,6 +93,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const tabContentRef = useRef(null);
   const prevTabRef    = useRef(null);
   const TAB_ORDER     = ['global', 'projets', 'sorties'];
+  const [viewOffset, setViewOffset]         = useState(0); // 0 = current, -1 = prev, etc.
   const [drillPole, setDrillPole]           = useState(null);
   const [drillYear, setDrillYear]           = useState(null);
   const [drillMonth, setDrillMonth]         = useState(null);
@@ -103,14 +104,26 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const [drillHistory, setDrillHistory]     = useState(null);
   const [drillLoading, setDrillLoading]     = useState(false);
 
-  const fetchStats = useCallback((pole, { silent = false } = {}) => {
-    const cacheKey = `hm_cache_stats${pole ? '_' + pole : ''}`;
+  // Compute the viewed period date from offset
+  const viewedDate = useMemo(() => {
+    const d = new Date();
+    if (periodMode === 'annual') d.setFullYear(d.getFullYear() + viewOffset);
+    else { d.setDate(1); d.setMonth(d.getMonth() + viewOffset); }
+    return d;
+  }, [viewOffset, periodMode]);
+
+  const fetchStats = useCallback((pole, { silent = false, offset = 0, mode = 'monthly' } = {}) => {
+    const d = new Date();
+    if (mode === 'annual') d.setFullYear(d.getFullYear() + offset);
+    else { d.setDate(1); d.setMonth(d.getMonth() + offset); }
+    const params = { ...(pole ? { pole } : {}), year: d.getFullYear(), month: d.getMonth() + 1 };
+    const cacheKey = `hm_cache_stats${pole ? '_' + pole : ''}_${params.year}_${params.month}`;
     if (!silent) {
       const cached = localStorage.getItem(cacheKey);
       if (cached) { try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ } }
       else setStatsLoading(true);
     }
-    return getStats(pole ? { pole } : {})
+    return getStats(params)
       .then(s => {
         setApiStats(s);
         setStatsLoading(false);
@@ -121,7 +134,10 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   }, []);
 
   // ── Fetch stats — stale-while-revalidate ────────────────────────────────
-  useEffect(() => { fetchStats(selectedPole); }, [selectedPole, fetchStats]);
+  useEffect(() => { fetchStats(selectedPole, { offset: viewOffset, mode: periodMode }); }, [selectedPole, viewOffset, periodMode, fetchStats]);
+
+  // Reset offset when switching period mode
+  useEffect(() => { setViewOffset(0); }, [periodMode]);
 
   // ── GSAP slide entre onglets ─────────────────────────────────────────────
   useEffect(() => {
@@ -137,9 +153,9 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchStats(selectedPole, { silent: true });
+    await fetchStats(selectedPole, { silent: true, offset: viewOffset, mode: periodMode });
     setRefreshing(false);
-  }, [selectedPole, fetchStats]);
+  }, [selectedPole, fetchStats, viewOffset, periodMode]);
 
   // ── Filtered donors by selected pole (for drill-down tabs) ───────────────
   const filteredDonors = useMemo(() =>
@@ -253,7 +269,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
   // ── Financial overview data ──────────────────────────────────────────────
   const financialData = useMemo(() => {
-    const cy = now.getFullYear(), cm = now.getMonth() + 1;
+    const cy = viewedDate.getFullYear(), cm = viewedDate.getMonth() + 1;
     const periodLabel = periodMode === 'monthly' ? `${MONTH_NAMES[cm - 1]} ${cy}` : `Année ${cy}`;
 
     const collecte = apiStats?.financials
@@ -353,9 +369,30 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
                   · mis à jour {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
-              <span className="ml-auto text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">
-                {periodLabel}
-              </span>
+              {/* Period navigation */}
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => setViewOffset(v => v - 1)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                  title={isAnnual ? 'Année précédente' : 'Mois précédent'}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full min-w-[90px] text-center">
+                  {isAnnual
+                    ? viewedDate.getFullYear()
+                    : `${MONTH_NAMES[viewedDate.getMonth()].slice(0, 3)} ${viewedDate.getFullYear()}`
+                  }
+                </span>
+                <button
+                  onClick={() => setViewOffset(v => Math.min(0, v + 1))}
+                  disabled={viewOffset >= 0}
+                  className="p-1 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title={isAnnual ? 'Année suivante' : 'Mois suivant'}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}

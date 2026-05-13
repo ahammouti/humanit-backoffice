@@ -48,10 +48,14 @@ const refreshAllStatuses = async () => {
 export const getStats = async (req, res, next) => {
   try {
     await refreshAllStatuses();
-    const { pole } = req.query;
+    const { pole, year: qYear, month: qMonth } = req.query;
     const donorWhere = { pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' }, deletedAt: null };
 
-    const now = new Date();
+    // Support navigation to past periods via ?year=YYYY&month=MM
+    const realNow = new Date();
+    const now = (qYear || qMonth)
+      ? new Date(parseInt(qYear ?? realNow.getFullYear()), qMonth ? parseInt(qMonth) - 1 : 0, 15)
+      : realNow;
     const sixMonthsAgo    = new Date(now.getFullYear(), now.getMonth() - 5, 1);
     const startOfYear     = new Date(now.getFullYear(), 0, 1);
     const startOfMonth    = new Date(now.getFullYear(), now.getMonth(), 1);
