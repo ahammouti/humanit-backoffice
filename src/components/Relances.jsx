@@ -199,7 +199,7 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
   })[r] ?? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600';
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-5">
       <Modal open={!!emailFor} onClose={() => setEmailFor(null)} title="Email de relance" size="lg">
         {emailFor && <EmailModal donor={emailFor} onClose={() => setEmailFor(null)} onMarkSent={() => handleMarkSent(emailFor)} />}
       </Modal>

@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, CreditCard, Bell,
   Settings as SettingsIcon, Sparkles, BellRing,
   Search, Moon, Sun, LogOut, Clock, Send,
-  Calendar, CalendarDays, Trash2,
+  Calendar, CalendarDays, Trash2, Menu, X as XIcon, MoreHorizontal,
 } from 'lucide-react';
 
 const DASH_PALETTE = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4'];
@@ -60,6 +60,7 @@ export default function App() {
   const [notifications,   setNotifications]   = useState([]);
   const [showSearch,      setShowSearch]       = useState(false);
   const [searchOpenDonor, setSearchOpenDonor]  = useState(null);
+  const [mobileNavOpen,   setMobileNavOpen]    = useState(false);
 
   // Derived: pole names array for components that expect string[]
   const poles = polesData
@@ -480,6 +481,8 @@ export default function App() {
 
   if (!currentUser) return <Login />;
 
+  const navTo = (tab) => { setCurrentTab(tab); setMobileNavOpen(false); };
+
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900 font-sans text-gray-900 dark:text-gray-100 relative overflow-hidden transition-colors duration-200">
 
@@ -512,25 +515,35 @@ export default function App() {
         ))}
       </div>
 
+      {/* SIDEBAR OVERLAY (mobile) */}
+      {mobileNavOpen && (
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setMobileNavOpen(false)} />
+      )}
+
       {/* SIDEBAR */}
-      <aside className="w-60 bg-blue-950 text-white flex flex-col shadow-xl flex-shrink-0">
-        <div className="px-5 py-5 border-b border-blue-900/60">
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            Humanit'R <Sparkles className="h-4 w-4 text-blue-300" />
-          </h1>
-          <p className="text-blue-400 text-xs mt-0.5 font-medium uppercase tracking-widest">Back Office</p>
+      <aside className={`w-60 bg-blue-950 text-white flex flex-col shadow-xl flex-shrink-0 fixed md:relative inset-y-0 left-0 z-50 transition-transform duration-300 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="px-5 py-5 border-b border-blue-900/60 flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold flex items-center gap-2">
+              Humanit'R <Sparkles className="h-4 w-4 text-blue-300" />
+            </h1>
+            <p className="text-blue-400 text-xs mt-0.5 font-medium uppercase tracking-widest">Back Office</p>
+          </div>
+          <button onClick={() => setMobileNavOpen(false)} className="md:hidden p-1.5 text-blue-300 hover:text-white rounded-lg">
+            <XIcon className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 py-3 space-y-0.5 overflow-y-auto">
-          <NavItem icon={<LayoutDashboard />} label="Tableau de bord" active={currentTab === 'dashboard'} onClick={() => setCurrentTab('dashboard')} />
-          <NavItem icon={<Users />}           label="Donateurs"       active={currentTab === 'donors'}    onClick={() => setCurrentTab('donors')} />
-          <NavItem icon={<CreditCard />}      label="Paiements"       active={currentTab === 'payments'}  onClick={() => setCurrentTab('payments')} />
-          <NavItem icon={<Bell />}            label="Relances"        active={currentTab === 'relances'}  onClick={() => setCurrentTab('relances')} badge={urgentCount} />
-          <NavItem icon={<Send />}            label="Virements"       active={currentTab === 'envois'}    onClick={() => setCurrentTab('envois')} />
+          <NavItem icon={<LayoutDashboard />} label="Tableau de bord" active={currentTab === 'dashboard'} onClick={() => navTo('dashboard')} />
+          <NavItem icon={<Users />}           label="Donateurs"       active={currentTab === 'donors'}    onClick={() => navTo('donors')} />
+          <NavItem icon={<CreditCard />}      label="Paiements"       active={currentTab === 'payments'}  onClick={() => navTo('payments')} />
+          <NavItem icon={<Bell />}            label="Relances"        active={currentTab === 'relances'}  onClick={() => navTo('relances')} badge={urgentCount} />
+          <NavItem icon={<Send />}            label="Virements"       active={currentTab === 'envois'}    onClick={() => navTo('envois')} />
           {can('viewLog') && (
-            <NavItem icon={<Clock />}         label="Journal"         active={currentTab === 'log'}       onClick={() => setCurrentTab('log')} />
+            <NavItem icon={<Clock />}         label="Journal"         active={currentTab === 'log'}       onClick={() => navTo('log')} />
           )}
-          <NavItem icon={<SettingsIcon />}    label="Paramètres"      active={currentTab === 'settings'}  onClick={() => setCurrentTab('settings')} />
+          <NavItem icon={<SettingsIcon />}    label="Paramètres"      active={currentTab === 'settings'}  onClick={() => navTo('settings')} />
         </nav>
 
         <div className="p-4 border-t border-blue-900/60 space-y-2">
@@ -571,15 +584,21 @@ export default function App() {
       </aside>
 
       {/* MAIN */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2.5 flex items-center gap-3 shadow-sm flex-shrink-0 transition-colors duration-200 min-h-[52px]">
-          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-shrink-0 min-w-[130px]">
+      <main className="flex-1 flex flex-col overflow-hidden md:pb-0 pb-16">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-3 md:px-4 py-2.5 flex items-center gap-2 md:gap-3 shadow-sm flex-shrink-0 transition-colors duration-200 min-h-[52px]">
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            className="md:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 -ml-1 flex-shrink-0"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-100 flex-shrink-0 truncate">
             {currentTab === 'dashboard' && "Vue d'ensemble"}
-            {currentTab === 'donors'    && "Gestion des Donateurs"}
-            {currentTab === 'payments'  && "Paiements & Transactions"}
-            {currentTab === 'relances'  && "Suivi des Relances"}
-            {currentTab === 'log'       && "Journal d'Activité"}
-            {currentTab === 'envois'    && "Virements & Envois terrain"}
+            {currentTab === 'donors'    && "Donateurs"}
+            {currentTab === 'payments'  && "Paiements"}
+            {currentTab === 'relances'  && "Relances"}
+            {currentTab === 'log'       && "Journal"}
+            {currentTab === 'envois'    && "Virements"}
             {currentTab === 'settings'  && "Paramètres"}
           </h2>
 
@@ -745,6 +764,44 @@ export default function App() {
           )}
         </div>
       </main>
+
+      {/* BOTTOM NAV (mobile only) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex safe-area-inset-bottom">
+        {[
+          { tab: 'dashboard', icon: <LayoutDashboard className="h-5 w-5" />, label: 'Accueil' },
+          { tab: 'donors',    icon: <Users           className="h-5 w-5" />, label: 'Donateurs' },
+          { tab: 'relances',  icon: <Bell            className="h-5 w-5" />, label: 'Relances', badge: urgentCount },
+          { tab: 'payments',  icon: <CreditCard      className="h-5 w-5" />, label: 'Paiements' },
+        ].map(({ tab, icon, label, badge }) => (
+          <button
+            key={tab}
+            onClick={() => setCurrentTab(tab)}
+            className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 relative transition-colors ${
+              currentTab === tab
+                ? 'text-blue-600 dark:text-blue-400'
+                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+            }`}
+          >
+            <div className="relative">
+              {icon}
+              {badge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                  {badge > 9 ? '9+' : badge}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-medium">{label}</span>
+            {currentTab === tab && <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />}
+          </button>
+        ))}
+        <button
+          onClick={() => setMobileNavOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Plus</span>
+        </button>
+      </nav>
     </div>
   );
 }

@@ -241,7 +241,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   }`;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
 
       {/* ── SYNTHÈSE DU MOIS ───────────────────────────────────────────────── */}
       {!statsLoading && apiStats && (() => {
@@ -305,7 +305,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
             </div>
 
             {/* Metric tiles */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700">
+            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700 [&>*:nth-child(odd)]:border-r [&>*:nth-child(odd)]:border-gray-100 dark:[&>*:nth-child(odd)]:border-gray-700 lg:[&>*:nth-child(odd)]:border-r-0">
               {/* Tendance */}
               <div className="px-5 py-4">
                 <p className="text-xs text-gray-400 dark:text-gray-500 font-medium mb-1">
@@ -382,7 +382,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       })()}
 
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         <StatCard title="Donateurs Actifs"  value={totalActive}            subtitle={`${retentionRate}% de fidélité`}                        icon={<CheckCircle2 />} color="green"  onClick={() => onNavigate?.('donors')} />
         <StatCard title="En Retard"         value={totalDelayed}           subtitle={`${delayedAmount.toLocaleString('fr-FR')} € à récupérer`} icon={<AlertCircle />}  color="red"    onClick={() => onNavigate?.('relances')} />
         <StatCard title="Attendu / mois"    value={`${expectedMonthly.toLocaleString('fr-FR')} €`} subtitle={`mensuel uniquement`}            icon={<CreditCard />}   color="blue"   onClick={() => onNavigate?.('payments')} />
@@ -391,7 +391,8 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       </div>
 
       {/* ── TABS ───────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+      <div className="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+      <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl w-fit min-w-max">
         <button onClick={() => setTab('global')}  className={tabCls('global')}>
           <span className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> Vue globale</span>
         </button>
@@ -401,6 +402,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
         <button onClick={() => setTab('sorties')} className={tabCls('sorties')}>
           <span className="flex items-center gap-1.5"><Send className="h-3.5 w-3.5" /> Sorties planifiées</span>
         </button>
+      </div>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════
@@ -502,7 +504,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
           {/* Donut + répartition par projet */}
           {financialData.pieData.length > 0 && (
             <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 bg-gray-50 dark:bg-gray-800/50">
-              <div className="flex gap-6 items-center flex-wrap">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start">
                 <DonutChart
                   data={financialData.pieData}
                   centerLabel={periodMode === 'monthly' ? 'Ce mois' : 'Annuel'}

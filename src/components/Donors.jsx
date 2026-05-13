@@ -430,7 +430,7 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
   const getLiveDonor = (id) => donors.find(d => d.id === id);
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
       {/* DETAIL DRAWER */}
       {selectedDonor && getLiveDonor(selectedDonor.id) && (
         <DonorDetail
@@ -559,8 +559,8 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Nom, email, n° commande HelloAsso…"
-              className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-72 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              placeholder="Nom, email…"
+              className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-72 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               value={search}
               onChange={e => onSearchChange?.(e.target.value)}
             />

@@ -171,7 +171,7 @@ export default function Payments({ donors, poles, onAdd }) {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Enregistrer un paiement manuel" size="md">
         <AddPaymentModal
           donors={donors}

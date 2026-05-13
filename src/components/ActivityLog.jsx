@@ -38,7 +38,7 @@ export default function ActivityLog({ activityLog }) {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
       {/* TOOLBAR */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
         <div className="flex gap-3 flex-wrap">

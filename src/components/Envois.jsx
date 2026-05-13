@@ -534,7 +534,7 @@ export default function Envois({ envois, onAdd, onUpdate, onRefresh }) {
   }`;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
