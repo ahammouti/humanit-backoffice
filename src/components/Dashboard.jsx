@@ -30,20 +30,17 @@ function DonutChart({ data, centerLabel, centerValue }) {
   const circ = 2 * Math.PI * r;
   const total = data.reduce((s, d) => s + Math.max(0, d.value), 0);
   const valid = data.filter(d => d.value > 0);
-  const segsRef = useRef([]);
+  const wrapRef = useRef(null);
   const dataSig = data.map(d => `${d.label}${d.value}`).join();
 
   useEffect(() => {
-    if (!valid.length) return;
-    let cum = 0;
-    segsRef.current.forEach((el, i) => {
-      if (!el || !valid[i]) return;
-      const segLen = Math.max(0, (valid[i].value / total) * circ - 3);
-      gsap.fromTo(el,
-        { attr: { strokeDasharray: `0 ${circ}` } },
-        { attr: { strokeDasharray: `${segLen} ${circ}` }, duration: 0.75, delay: i * 0.1, ease: 'power3.out' }
-      );
-    });
+    if (!wrapRef.current) return;
+    const segs = wrapRef.current.querySelectorAll('.ds');
+    if (!segs.length) return;
+    gsap.fromTo(segs,
+      { opacity: 0 },
+      { opacity: 1, duration: 0.45, stagger: 0.09, ease: 'power2.out' }
+    );
   }, [dataSig]);
 
   if (total === 0) return (
@@ -66,19 +63,20 @@ function DonutChart({ data, centerLabel, centerValue }) {
   });
 
   return (
-    <div className="relative flex-shrink-0" style={{ width: S, height: S }}>
-      <svg viewBox={`0 0 ${S} ${S}`} width={S} height={S} style={{ transform: 'rotate(-90deg)' }}>
+    <div ref={wrapRef} className="relative flex-shrink-0" style={{ width: S, height: S }}>
+      <svg key={dataSig} viewBox={`0 0 ${S} ${S}`} width={S} height={S} style={{ transform: 'rotate(-90deg)' }}>
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw} />
         {segments.map((seg, i) => (
           <circle
             key={i}
-            ref={el => { segsRef.current[i] = el; }}
+            className="ds"
             cx={cx} cy={cy} r={r}
             fill="none"
             stroke={seg.color}
             strokeWidth={sw - 2}
-            strokeDasharray={`0 ${circ}`}
+            strokeDasharray={`${seg.segLen} ${circ}`}
             strokeDashoffset={seg.offset}
+            opacity={0}
           />
         ))}
       </svg>
