@@ -30,7 +30,8 @@ import * as dashboardApi from './api/dashboard.js';
 export default function App() {
   const { currentUser, logout, isDark, toggleDark, logAction, activityLog, can } = useApp();
 
-  const [currentTab,   setCurrentTab]   = useState('dashboard');
+  const [currentTab,   setCurrentTab]   = useState(() => localStorage.getItem('hm_tab') || 'dashboard');
+  useEffect(() => { localStorage.setItem('hm_tab', currentTab); }, [currentTab]);
   const [selectedPole, setSelectedPole] = useState(null);
   const [periodMode,   setPeriodMode]   = useState('monthly');
 
