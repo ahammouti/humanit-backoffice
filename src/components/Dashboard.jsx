@@ -305,94 +305,131 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       {tab === 'global' && (<>
 
         {/* ── FINANCIAL OVERVIEW ─────────────────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-            <BarChart3 className="h-4 w-4 text-gray-500" />
-            <h3 className="font-bold text-gray-800 text-sm">
-              Analyse financière — {selectedPole
-                ? <span className="text-blue-700">{selectedPole.length > 30 ? selectedPole.slice(0, 28) + '…' : selectedPole}</span>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3">
+            <BarChart3 className="h-4 w-4 text-gray-400" />
+            <h3 className="font-bold text-gray-800 dark:text-gray-100 text-sm">
+              Analyse financière —{' '}
+              {selectedPole
+                ? <span className="text-blue-600">{selectedPole.length > 30 ? selectedPole.slice(0, 28) + '…' : selectedPole}</span>
                 : 'Tous les projets'
-              } · <span className="font-normal text-gray-500">{financialData.periodLabel}</span>
+              }
             </h3>
+            <span className="ml-auto text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">
+              {financialData.periodLabel}
+            </span>
           </div>
-          <div className="p-5 flex gap-6 items-center flex-wrap">
-            {/* Donut */}
-            <div className="flex flex-col items-center gap-3 flex-shrink-0">
-              <DonutChart
-                data={financialData.pieData}
-                centerLabel={periodMode === 'monthly' ? 'Ce mois' : 'Annuel'}
-                centerValue={`${financialData.collecte} €`}
-              />
-              {/* Legend */}
-              <div className="space-y-1.5 w-44">
-                {financialData.pieData.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-                      <span className="text-xs text-gray-500 truncate">{d.label}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="text-xs font-bold text-gray-800">{d.value} €</span>
-                      <span className="text-xs text-gray-400 w-8 text-right">
-                        {financialData.collecte > 0 ? Math.round(d.value / financialData.collecte * 100) : 0}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {financialData.pieData.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center">Aucune donnée pour cette période</p>
-                )}
+
+          {/* 3 metric cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-700">
+            {/* Collecté */}
+            <div className="p-6 group">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Budget collecté</span>
+                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
+              </div>
+              <p className="text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-none">
+                {financialData.collecte.toLocaleString('fr-FR')} €
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Dons reçus · {financialData.periodLabel}</p>
+              <div className="mt-4 h-1.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-full">
+                <div className="h-1.5 bg-emerald-500 rounded-full w-full" />
               </div>
             </div>
 
-            {/* 3 stat cards */}
-            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4 min-w-0">
-              {/* Collecté */}
-              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Budget collecté</p>
-                </div>
-                <p className="text-2xl font-bold text-emerald-900">{financialData.collecte.toLocaleString('fr-FR')} €</p>
-                <p className="text-xs text-emerald-600 mt-1">Dons reçus · {financialData.periodLabel}</p>
-                <div className="mt-2 h-1 bg-emerald-100 rounded-full">
-                  <div className="h-1 bg-emerald-500 rounded-full" style={{ width: '100%' }} />
+            {/* Dépenses */}
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Dépenses terrain</span>
+                <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                  <Send className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                 </div>
               </div>
-
-              {/* Dépensé */}
-              <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Dépenses terrain</p>
-                </div>
-                <p className="text-2xl font-bold text-amber-900">{financialData.depense.toLocaleString('fr-FR')} €</p>
-                <p className="text-xs text-amber-600 mt-1">Virements envoyés · {financialData.periodLabel}</p>
-                <div className="mt-2 h-1 bg-amber-100 rounded-full">
-                  <div className="h-1 bg-amber-500 rounded-full" style={{ width: financialData.collecte > 0 ? `${Math.min(100, Math.round(financialData.depense / financialData.collecte * 100))}%` : '0%' }} />
-                </div>
+              <p className="text-3xl font-black text-gray-900 dark:text-white tracking-tight leading-none">
+                {financialData.depense.toLocaleString('fr-FR')} €
+              </p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Virements envoyés · {financialData.periodLabel}</p>
+              <div className="mt-4 h-1.5 bg-amber-100 dark:bg-amber-900/40 rounded-full">
+                <div className="h-1.5 bg-amber-500 rounded-full transition-all"
+                  style={{ width: financialData.collecte > 0 ? `${Math.min(100, Math.round(financialData.depense / financialData.collecte * 100))}%` : '0%' }} />
               </div>
+              {financialData.collecte > 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5 font-medium">
+                  {Math.round(financialData.depense / financialData.collecte * 100)}% du collecté
+                </p>
+              )}
+            </div>
 
-              {/* Disponible */}
-              {(() => {
-                const pos = financialData.disponible >= 0;
-                const pct = financialData.collecte > 0 ? Math.round(Math.abs(financialData.disponible) / financialData.collecte * 100) : 0;
-                return (
-                  <div className={`${pos ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'} border rounded-xl p-4`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`w-2 h-2 rounded-full ${pos ? 'bg-blue-500' : 'bg-red-500'}`} />
-                      <p className={`text-xs font-semibold uppercase tracking-wider ${pos ? 'text-blue-700' : 'text-red-700'}`}>{pos ? 'Solde disponible' : 'Déficit'}</p>
-                    </div>
-                    <p className={`text-2xl font-bold ${pos ? 'text-blue-900' : 'text-red-900'}`}>{Math.abs(financialData.disponible).toLocaleString('fr-FR')} €</p>
-                    <p className={`text-xs mt-1 ${pos ? 'text-blue-600' : 'text-red-600'}`}>{pos ? `${pct}% du budget restant` : `${pct}% de dépassement`}</p>
-                    <div className={`mt-2 h-1 ${pos ? 'bg-blue-100' : 'bg-red-100'} rounded-full`}>
-                      <div className={`h-1 ${pos ? 'bg-blue-500' : 'bg-red-500'} rounded-full`} style={{ width: `${Math.min(100, pct)}%` }} />
+            {/* Solde */}
+            {(() => {
+              const pos = financialData.disponible >= 0;
+              const pct = financialData.collecte > 0 ? Math.round(Math.abs(financialData.disponible) / financialData.collecte * 100) : 0;
+              return (
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${pos ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {pos ? 'Solde disponible' : 'Déficit'}
+                    </span>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${pos ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
+                      {pos
+                        ? <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        : <AlertCircle  className="h-4 w-4 text-red-600 dark:text-red-400" />
+                      }
                     </div>
                   </div>
-                );
-              })()}
-            </div>
+                  <p className={`text-3xl font-black tracking-tight leading-none ${pos ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
+                    {Math.abs(financialData.disponible).toLocaleString('fr-FR')} €
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{pos ? 'Non dépensé ce mois' : 'Dépassement'} · {financialData.periodLabel}</p>
+                  <div className={`mt-4 h-1.5 rounded-full ${pos ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-red-100 dark:bg-red-900/40'}`}>
+                    <div className={`h-1.5 rounded-full transition-all ${pos ? 'bg-blue-500' : 'bg-red-500'}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                  <p className={`text-xs mt-1.5 font-medium ${pos ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}>
+                    {pos ? `${pct}% du budget restant` : `${pct}% de dépassement`}
+                  </p>
+                </div>
+              );
+            })()}
           </div>
+
+          {/* Donut + répartition par projet */}
+          {financialData.pieData.length > 0 && (
+            <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 bg-gray-50 dark:bg-gray-800/50">
+              <div className="flex gap-6 items-center flex-wrap">
+                <DonutChart
+                  data={financialData.pieData}
+                  centerLabel={periodMode === 'monthly' ? 'Ce mois' : 'Annuel'}
+                  centerValue={`${financialData.collecte.toLocaleString('fr-FR')} €`}
+                />
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  {financialData.pieData.map((d, i) => {
+                    const totalAll = financialData.pieData.reduce((s, x) => s + x.value, 0);
+                    const pct = totalAll > 0 ? Math.round(d.value / totalAll * 100) : 0;
+                    return (
+                      <div key={i} className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                            <span className="text-xs text-gray-600 dark:text-gray-400 truncate">{d.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{d.value.toLocaleString('fr-FR')} €</span>
+                            <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
+                          </div>
+                        </div>
+                        <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
+                          <div className="h-1 rounded-full transition-all" style={{ background: d.color, width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Alerts + Chart */}
