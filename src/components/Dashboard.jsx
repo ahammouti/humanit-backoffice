@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { getStats, getPoleHistory } from '../api/dashboard.js';
 import {
   CheckCircle2, AlertCircle, Clock, CreditCard,
   TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2,
-  ChevronRight, Send, Globe, FolderOpen, ArrowUpRight,
+  ChevronRight, Send, Globe, FolderOpen, ArrowUpRight, RefreshCw,
 } from 'lucide-react';
 import { StatCard, BarChart } from './ui';
 
@@ -75,22 +75,36 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const [drillMonth, setDrillMonth]         = useState(null);
   const [apiStats, setApiStats]             = useState(null);
   const [statsLoading, setStatsLoading]     = useState(true);
-  const [drillHistory, setDrillHistory]     = useState(null);  // { rec, expected }
+  const [refreshing, setRefreshing]         = useState(false);
+  const [lastRefresh, setLastRefresh]       = useState(null);
+  const [drillHistory, setDrillHistory]     = useState(null);
   const [drillLoading, setDrillLoading]     = useState(false);
 
-  // ── Fetch stats — stale-while-revalidate ────────────────────────────────
-  useEffect(() => {
-    const cacheKey = `hm_cache_stats${selectedPole ? '_' + selectedPole : ''}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ }
-    } else {
-      setStatsLoading(true);
+  const fetchStats = useCallback((pole, { silent = false } = {}) => {
+    const cacheKey = `hm_cache_stats${pole ? '_' + pole : ''}`;
+    if (!silent) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) { try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ } }
+      else setStatsLoading(true);
     }
-    getStats(selectedPole ? { pole: selectedPole } : {})
-      .then(s => { setApiStats(s); setStatsLoading(false); localStorage.setItem(cacheKey, JSON.stringify(s)); })
+    return getStats(pole ? { pole } : {})
+      .then(s => {
+        setApiStats(s);
+        setStatsLoading(false);
+        setLastRefresh(new Date());
+        localStorage.setItem(cacheKey, JSON.stringify(s));
+      })
       .catch(() => setStatsLoading(false));
-  }, [selectedPole]);
+  }, []);
+
+  // ── Fetch stats — stale-while-revalidate ────────────────────────────────
+  useEffect(() => { fetchStats(selectedPole); }, [selectedPole, fetchStats]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchStats(selectedPole, { silent: true });
+    setRefreshing(false);
+  }, [selectedPole, fetchStats]);
 
   // ── Filtered donors by selected pole (for drill-down tabs) ───────────────
   const filteredDonors = useMemo(() =>
@@ -299,9 +313,22 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
               <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">
                 Synthèse {isAnnual ? 'de l\'année' : 'du mois'}
               </h3>
+              {lastRefresh && (
+                <span className="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">
+                  · mis à jour {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
               <span className="ml-auto text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full">
                 {periodLabel}
               </span>
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-50"
+                title="Actualiser la synthèse"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
             {/* Metric tiles */}
