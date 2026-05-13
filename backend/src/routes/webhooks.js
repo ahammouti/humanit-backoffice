@@ -115,4 +115,58 @@ router.post('/helloasso', async (req, res) => {
   }
 });
 
+// Debug only — retourne le résultat synchroniquement pour diagnostiquer
+router.post('/helloasso-debug', async (req, res) => {
+  const rawBody = req.body;
+  const bodyType = rawBody === undefined ? 'undefined'
+    : Buffer.isBuffer(rawBody) ? `Buffer(${rawBody.length})`
+    : typeof rawBody;
+
+  let event = null;
+  let parseError = null;
+  if (rawBody && typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) {
+    event = rawBody;
+  } else {
+    try { event = JSON.parse(rawBody ? rawBody.toString() : '{}'); }
+    catch (e) { parseError = e.message; }
+  }
+
+  if (!event?.eventType) {
+    return res.json({ ok: false, bodyType, parseError, event });
+  }
+
+  if (event.eventType !== 'Payment' || event.data?.state !== 'Authorized') {
+    return res.json({ ok: false, reason: 'event non traitable', eventType: event.eventType, state: event.data?.state });
+  }
+
+  const p = event.data;
+  const helloassoId = String(p.id);
+  const exists = await prisma.payment.findUnique({ where: { helloassoId } });
+  if (exists) return res.json({ ok: false, reason: 'paiement déjà en base', helloassoId });
+
+  const formName = (p.order?.formName ?? '').trim();
+  const pole = await findOrCreatePoleByName(formName);
+  if (!pole) return res.json({ ok: false, reason: 'pôle introuvable', formName });
+
+  let donor = await prisma.donor.findUnique({ where: { email_poleId: { email: p.payer.email, poleId: pole.id } } });
+  const donorCreated = !donor;
+  if (!donor) {
+    donor = await prisma.donor.create({
+      data: {
+        firstName: p.payer.firstName ?? 'Inconnu', lastName: p.payer.lastName ?? 'Inconnu',
+        email: p.payer.email, poleId: pole.id, amount: p.amount / 100,
+        startDate: new Date(p.date), paymentMethod: 'helloasso', status: 'ACTIF', delayMonths: 0,
+        helloassoOrderId: String(p.order?.id ?? ''),
+      },
+    });
+  }
+
+  const payment = await prisma.payment.create({
+    data: { donorId: donor.id, poleId: donor.poleId, amount: p.amount / 100, status: 'Paye', source: 'helloasso', helloassoId, formType: p.order?.formType ?? null, date: new Date(p.date) },
+  });
+
+  await refreshDonorStatus(prisma, donor.id);
+  res.json({ ok: true, donorCreated, donorId: donor.id, paymentId: payment.id, amount: p.amount / 100, pole: pole.name });
+});
+
 export default router;
