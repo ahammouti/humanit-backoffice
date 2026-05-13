@@ -84,11 +84,17 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const [drillHistory, setDrillHistory]     = useState(null);  // { rec, expected }
   const [drillLoading, setDrillLoading]     = useState(false);
 
-  // ── Fetch stats from API (fast aggregations — no full table scan) ─────────
+  // ── Fetch stats — stale-while-revalidate ────────────────────────────────
   useEffect(() => {
-    setStatsLoading(true);
+    const cacheKey = `hm_cache_stats${selectedPole ? '_' + selectedPole : ''}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try { setApiStats(JSON.parse(cached)); setStatsLoading(false); } catch { /* ignore */ }
+    } else {
+      setStatsLoading(true);
+    }
     getStats(selectedPole ? { pole: selectedPole } : {})
-      .then(s => { setApiStats(s); setStatsLoading(false); })
+      .then(s => { setApiStats(s); setStatsLoading(false); localStorage.setItem(cacheKey, JSON.stringify(s)); })
       .catch(() => setStatsLoading(false));
   }, [selectedPole]);
 

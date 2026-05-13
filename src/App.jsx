@@ -65,18 +65,33 @@ export default function App() {
     .filter(p => !p.helloassoState || p.helloassoState === 'Public')
     .map(p => p.name);
 
-  // ── INITIAL LOAD — poles only (fast), urgent count from dashboard stats ──
+  // ── INITIAL LOAD — stale-while-revalidate from localStorage cache ──────
   useEffect(() => {
     if (!currentUser) return;
-    setLoading(true);
     tabLoaded.current = {};
+
+    // Show cached poles instantly (no spinner if cache exists)
+    const cachedPoles = localStorage.getItem('hm_cache_poles');
+    if (cachedPoles) {
+      try { setPolesData(JSON.parse(cachedPoles)); setLoading(false); } catch { /* ignore */ }
+    } else {
+      setLoading(true);
+    }
+
+    // Show cached urgentCount instantly
+    const cachedStats = localStorage.getItem('hm_cache_stats');
+    if (cachedStats) {
+      try { const s = JSON.parse(cachedStats); setUrgentCount(s.kpis?.urgentCount ?? 0); } catch { /* ignore */ }
+    }
+
+    // Revalidate in background — update cache silently
     polesApi.getPoles()
-      .then(setPolesData)
+      .then(data => { setPolesData(data); localStorage.setItem('hm_cache_poles', JSON.stringify(data)); })
       .catch(() => addNotification('Erreur chargement des pôles', 'warning'))
       .finally(() => setLoading(false));
-    // urgentCount in background — no blocking
+
     dashboardApi.getStats()
-      .then(s => setUrgentCount(s.kpis?.urgentCount ?? 0))
+      .then(s => { setUrgentCount(s.kpis?.urgentCount ?? 0); localStorage.setItem('hm_cache_stats', JSON.stringify(s)); })
       .catch(() => {});
   }, [currentUser]);
 

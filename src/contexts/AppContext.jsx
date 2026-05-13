@@ -45,13 +45,12 @@ export function AppProvider({ children }) {
     localStorage.setItem('hm_dark', String(isDark));
   }, [isDark]);
 
-  // Verify token and load activity on mount
+  // Verify token on mount — non-blocking, user already shown from localStorage cache
   useEffect(() => {
     const token = localStorage.getItem('hm_token');
     if (!token) return;
     authApi.getMe()
       .then((user) => {
-        // Ensure name/initials compat
         const enriched = {
           ...user,
           name: `${user.firstName} ${user.lastName}`,
@@ -59,9 +58,9 @@ export function AppProvider({ children }) {
         };
         setCurrentUser(enriched);
         localStorage.setItem('hm_user', JSON.stringify(enriched));
-        return getActivity({ limit: 300 });
+        // Activity log is non-critical — fire and forget, don't block
+        getActivity({ limit: 300 }).then(setActivityLog).catch(() => {});
       })
-      .then((logs) => logs && setActivityLog(logs))
       .catch(() => {
         localStorage.removeItem('hm_token');
         localStorage.removeItem('hm_user');
