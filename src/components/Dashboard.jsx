@@ -467,7 +467,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       </div>
       </div>
 
-      <div ref={tabContentRef}>
+      <div ref={tabContentRef} className="space-y-4 md:space-y-6">
       {/* ══════════════════════════════════════════════════════════════════════
           TAB : VUE GLOBALE
       ══════════════════════════════════════════════════════════════════════ */}
