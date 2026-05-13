@@ -691,9 +691,9 @@ export default function App() {
               </div>
             </div>
           ) : tabLoading === currentTab ? (
-            <div className="p-6 space-y-4 animate-pulse">
+            <div className="p-6 space-y-4">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-14 bg-gray-200 dark:bg-gray-700 rounded-xl" style={{ opacity: 1 - i * 0.12 }} />
+                <div key={i} className="h-14 rounded-xl shimmer" style={{ opacity: 1 - i * 0.12 }} />
               ))}
             </div>
           ) : (

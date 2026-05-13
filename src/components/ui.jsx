@@ -1,5 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+
+function useCountUp(end, duration = 900) {
+  const [current, setCurrent] = useState(0);
+  const rafRef = useRef(null);
+  useEffect(() => {
+    cancelAnimationFrame(rafRef.current);
+    if (!end) { setCurrent(0); return; }
+    const t0 = performance.now();
+    const tick = (now) => {
+      const p = Math.min((now - t0) / duration, 1);
+      const eased = 1 - (1 - p) ** 3;
+      setCurrent(Math.round(end * eased));
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [end, duration]);
+  return current;
+}
 
 export function NavItem({ icon, label, active, onClick, badge }) {
   return (
@@ -28,7 +47,16 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick
     green:  'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border-green-100 dark:border-green-800',
     red:    'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border-red-100 dark:border-red-800',
     orange: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800',
+    purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800',
   };
+  const isEur = typeof value === 'string' && value.endsWith(' €');
+  const numEnd = typeof value === 'number'
+    ? value
+    : isEur ? (parseInt(String(value).replace(/[\s ]/g, '')) || 0) : null;
+  const animated = useCountUp(numEnd ?? 0);
+  const displayValue = numEnd !== null
+    ? (typeof value === 'number' ? animated : `${animated.toLocaleString('fr-FR')} €`)
+    : value;
   return (
     <div
       onClick={onClick}
@@ -36,11 +64,11 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick
     >
       <div className="flex items-start justify-between mb-3">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
-        <div className={`p-2 rounded-lg border ${colors[color]}`}>
+        <div className={`p-2 rounded-lg border ${colors[color] ?? colors.blue}`}>
           {React.cloneElement(icon, { className: 'h-4 w-4' })}
         </div>
       </div>
-      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{value}</p>
+      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{displayValue}</p>
       {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>}
       {onClick && <p className="text-xs text-blue-500 mt-2 font-medium opacity-0 group-hover:opacity-100">Voir →</p>}
     </div>
@@ -100,20 +128,21 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
 
 export function BarChart({ data }) {
   const maxVal = Math.max(...data.map(d => Math.max(d.received, d.expected)), 1);
+  const sig = data.map(d => `${d.month}${d.received}${d.expected}`).join();
   return (
     <div className="w-full">
       <div className="flex items-end gap-2" style={{ height: 140 }}>
         {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+          <div key={`${sig}-${i}`} className="flex-1 flex flex-col items-center gap-1">
             <div className="w-full flex items-end justify-center gap-0.5" style={{ height: 110 }}>
               <div
-                className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-t-sm"
-                style={{ height: `${(d.expected / maxVal) * 100}%` }}
+                className="flex-1 bg-gray-200 dark:bg-gray-600 rounded-t-sm bar-grow"
+                style={{ height: `${(d.expected / maxVal) * 100}%`, animationDelay: `${i * 0.07}s` }}
                 title={`Attendu : ${d.expected} €`}
               />
               <div
-                className={`flex-1 rounded-t-sm ${d.received >= d.expected ? 'bg-emerald-400 dark:bg-emerald-500' : 'bg-blue-500 dark:bg-blue-400'}`}
-                style={{ height: `${(d.received / maxVal) * 100}%`, minHeight: d.received > 0 ? 4 : 0 }}
+                className={`flex-1 rounded-t-sm bar-grow ${d.received >= d.expected ? 'bg-emerald-400 dark:bg-emerald-500' : 'bg-blue-500 dark:bg-blue-400'}`}
+                style={{ height: `${(d.received / maxVal) * 100}%`, minHeight: d.received > 0 ? 4 : 0, animationDelay: `${i * 0.07 + 0.04}s` }}
                 title={`Reçu : ${d.received} €`}
               />
             </div>
