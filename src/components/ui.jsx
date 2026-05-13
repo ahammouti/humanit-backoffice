@@ -1,24 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { gsap } from 'gsap';
 import { X } from 'lucide-react';
 
-function useCountUp(end, duration = 900) {
-  const [current, setCurrent] = useState(0);
-  const rafRef = useRef(null);
+// Anime un nombre directement dans le DOM via GSAP — zéro re-render React
+const CountUp = React.memo(function CountUp({ numEnd, isEur }) {
+  const elRef   = useRef(null);
+  const objRef  = useRef({ val: 0 });
   useEffect(() => {
-    cancelAnimationFrame(rafRef.current);
-    if (!end) { setCurrent(0); return; }
-    const t0 = performance.now();
-    const tick = (now) => {
-      const p = Math.min((now - t0) / duration, 1);
-      const eased = 1 - (1 - p) ** 3;
-      setCurrent(Math.round(end * eased));
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [end, duration]);
-  return current;
-}
+    if (!elRef.current) return;
+    gsap.killTweensOf(objRef.current);
+    gsap.to(objRef.current, {
+      val: numEnd || 0,
+      duration: 0.85,
+      ease: 'power3.out',
+      onUpdate() {
+        if (elRef.current) {
+          const v = Math.round(objRef.current.val);
+          elRef.current.textContent = isEur ? `${v.toLocaleString('fr-FR')} €` : String(v);
+        }
+      },
+    });
+  }, [numEnd, isEur]);
+  return <span ref={elRef}>{isEur ? '0 €' : '0'}</span>;
+});
 
 export function NavItem({ icon, label, active, onClick, badge }) {
   return (
@@ -53,10 +57,6 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick
   const numEnd = typeof value === 'number'
     ? value
     : isEur ? (parseInt(String(value).replace(/[\s ]/g, '')) || 0) : null;
-  const animated = useCountUp(numEnd ?? 0);
-  const displayValue = numEnd !== null
-    ? (typeof value === 'number' ? animated : `${animated.toLocaleString('fr-FR')} €`)
-    : value;
   return (
     <div
       onClick={onClick}
@@ -68,7 +68,9 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick
           {React.cloneElement(icon, { className: 'h-4 w-4' })}
         </div>
       </div>
-      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{displayValue}</p>
+      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+        {numEnd !== null ? <CountUp numEnd={numEnd} isEur={isEur} /> : value}
+      </p>
       {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>}
       {onClick && <p className="text-xs text-blue-500 mt-2 font-medium opacity-0 group-hover:opacity-100">Voir →</p>}
     </div>
