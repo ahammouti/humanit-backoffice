@@ -45,7 +45,7 @@ export function NavItem({ icon, label, active, onClick, badge }) {
   );
 }
 
-export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick }) {
+export function StatCard({ title, value, subtitle, extra, icon, color = 'blue', onClick }) {
   const colors = {
     blue:   'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800',
     green:  'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 border-green-100 dark:border-green-800',
@@ -72,6 +72,7 @@ export function StatCard({ title, value, subtitle, icon, color = 'blue', onClick
         {numEnd !== null ? <CountUp numEnd={numEnd} isEur={isEur} /> : value}
       </p>
       {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{subtitle}</p>}
+      {extra && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">{extra}</p>}
       {onClick && <p className="text-xs text-blue-500 mt-2 font-medium opacity-0 group-hover:opacity-100">Voir →</p>}
     </div>
   );

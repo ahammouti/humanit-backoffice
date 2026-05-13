@@ -59,6 +59,8 @@ router.post('/helloasso', async (req, res) => {
       const pole = await findOrCreatePoleByName(formName);
       if (!pole) { logger.warn('[Webhook] Impossible de résoudre le pôle'); return; }
 
+      const paymentFrequency = formType === 'Membership' ? 'mensuel' : 'ponctuel';
+
       // Trouver ou créer le donateur (clé unique email+poleId)
       let donor = await prisma.donor.findUnique({
         where: { email_poleId: { email, poleId: pole.id } },
@@ -76,10 +78,16 @@ router.post('/helloasso', async (req, res) => {
             paymentMethod: 'helloasso',
             status: 'ACTIF',
             delayMonths: 0,
+            paymentFrequency,
             helloassoOrderId: String(p.order?.id ?? ''),
           },
         });
-        logger.info(`[Webhook] Nouveau donateur créé: ${donor.email} (${pole.name})`);
+        logger.info(`[Webhook] Nouveau donateur créé: ${donor.email} (${pole.name}) — ${paymentFrequency}`);
+      } else if (donor.paymentFrequency !== paymentFrequency && paymentFrequency === 'mensuel') {
+        // Reclassifier un ponctuel en mensuel si on reçoit un paiement Membership
+        await prisma.donor.update({ where: { id: donor.id }, data: { paymentFrequency: 'mensuel' } });
+        donor = { ...donor, paymentFrequency: 'mensuel' };
+        logger.info(`[Webhook] Donateur ${donor.email} reclassifié ponctuel → mensuel`);
       }
 
       const payment = await prisma.payment.create({

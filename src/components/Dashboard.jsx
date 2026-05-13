@@ -9,6 +9,7 @@ import {
 import { StatCard, BarChart } from './ui';
 
 const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const CACHE_VERSION = 'v3'; // bump when API response shape changes
 
 function parseDateStr(s) {
   if (!s) return null;
@@ -88,12 +89,11 @@ function DonutChart({ data, centerLabel, centerValue }) {
   );
 }
 
-export default function Dashboard({ donors, payments, envois = [], selectedPole, periodMode, onGoToRelances, onNavigate }) {
+export default function Dashboard({ donors, payments, envois = [], selectedPole, periodMode, viewOffset, setViewOffset, onGoToRelances, onNavigate }) {
   const [tab, setTab]                       = useState('global');
   const tabContentRef = useRef(null);
   const prevTabRef    = useRef(null);
   const TAB_ORDER     = ['global', 'projets', 'sorties'];
-  const [viewOffset, setViewOffset]         = useState(0); // 0 = current, -1 = prev, etc.
   const [drillPole, setDrillPole]           = useState(null);
   const [drillYear, setDrillYear]           = useState(null);
   const [drillMonth, setDrillMonth]         = useState(null);
@@ -119,7 +119,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     if (mode === 'annual') d.setFullYear(d.getFullYear() + offset);
     else { d.setDate(1); d.setMonth(d.getMonth() + offset); }
     const params = { ...(pole ? { pole } : {}), year: d.getFullYear(), month: d.getMonth() + 1 };
-    const cacheKey = `hm_cache_stats${pole ? '_' + pole : ''}_${params.year}_${params.month}`;
+    const cacheKey = `hm_cache_stats_${CACHE_VERSION}${pole ? '_' + pole : ''}_${params.year}_${params.month}`;
 
     if (!silent) {
       const cached = localStorage.getItem(cacheKey);
@@ -146,10 +146,16 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   }, []);
 
   // ── Fetch stats — stale-while-revalidate ────────────────────────────────
-  useEffect(() => { fetchStats(selectedPole, { offset: viewOffset, mode: periodMode }); }, [selectedPole, viewOffset, periodMode, fetchStats]);
-
-  // Reset offset when switching period mode
-  useEffect(() => { setViewOffset(0); }, [periodMode]);
+  const prevPeriodModeRef = useRef(periodMode);
+  useEffect(() => {
+    if (prevPeriodModeRef.current !== periodMode) {
+      prevPeriodModeRef.current = periodMode;
+      // Reset offset; if already 0, fetch immediately; otherwise wait for the
+      // offset state change to re-trigger this effect (avoids double fetch).
+      if (viewOffset !== 0) { setViewOffset(0); return; }
+    }
+    fetchStats(selectedPole, { offset: viewOffset, mode: periodMode });
+  }, [selectedPole, viewOffset, periodMode, fetchStats]);
 
   // ── GSAP slide entre onglets ─────────────────────────────────────────────
   useEffect(() => {
@@ -176,7 +182,6 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
   // ── KPIs — prefer API stats (instant), fall back to client-side ──────────
   const isCurrentPeriod    = viewOffset === 0;
-  const nonArreteDonors    = (apiStats?.kpis.activeCount ?? 0) + (apiStats?.kpis.delayedCount ?? 0);
   const totalActive        = !isCurrentPeriod && apiStats
     ? (periodMode === 'annual' ? (apiStats.kpis.donorsPaidYear ?? 0) : (apiStats.kpis.donorsPaidMonth ?? 0))
     : (apiStats?.kpis.activeCount ?? filteredDonors.filter(d => d.status === 'ACTIF').length);
@@ -221,7 +226,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     if (apiStats?.monthlyStats?.length) return apiStats.monthlyStats;
     const stats = [];
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d = new Date(viewedDate.getFullYear(), viewedDate.getMonth() - i, 1);
       const m = d.getMonth() + 1;
       const y = d.getFullYear();
       const received = payments
@@ -312,12 +317,16 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     // Pie data — per-pole breakdown from API
     let pieData;
     if (!selectedPole && apiStats?.byPoleCollected?.length) {
-      pieData = apiStats.byPoleCollected.map((p, i) => ({
+      const hasMensuel = apiStats.byPoleCollected.some(p => p.mensuel !== undefined);
+      const candidates = apiStats.byPoleCollected.map((p, i) => ({
         label: p.name,
         color: PALETTE[i % PALETTE.length],
-        value: p.annuel,
+        value: (periodMode === 'monthly' && hasMensuel) ? (p.mensuel ?? 0) : (p.annuel ?? 0),
       })).filter(d => d.value > 0);
-    } else {
+      // If no per-pole data for this period, fall through to collecte/depense pie
+      pieData = candidates.length > 0 ? candidates : null;
+    }
+    if (!pieData) {
       pieData = [
         { label: 'Collecté', color: '#10b981', value: collecte },
         { label: 'Dépensé',  color: '#f59e0b', value: Math.min(depense, collecte) },
@@ -325,7 +334,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
       ].filter(d => d.value > 0);
     }
     return { collecte, depense, disponible, pieData, periodLabel };
-  }, [apiStats, selectedPole, periodMode, now]);
+  }, [apiStats, selectedPole, periodMode, viewedDate]);
 
   // ── Shared tab button style ───────────────────────────────────────────────
   const tabCls = t => `px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -367,18 +376,19 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
           ? `${collectActual.toLocaleString('fr-FR')} / ${collectExpected.toLocaleString('fr-FR')} €`
           : '—';
 
-        // Priority actions
+        // Priority actions — urgentCount/arrêtés are current-state only, hide for past periods
         const actions = [];
-        if (urgentCount > 0)
+        if (isCurrentPeriod && urgentCount > 0)
           actions.push({ icon: '🔴', text: `${urgentCount} donateur${urgentCount > 1 ? 's' : ''} en retard sans contact — relance urgente`, nav: 'relances' });
         if (!isAnnual) {
           const silentPoles = poleStats.filter(p => p.expected > 0 && p.receivedThisMonth === 0);
           silentPoles.forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — 0 € reçu ce mois (objectif ${p.expected} €)`, nav: 'donors' }));
         } else {
-          const weakPoles = poleStats.filter(p => p.expected > 0 && p.receivedGlobal < p.expected * (now.getMonth() + 1) * 0.5);
-          weakPoles.slice(0, 2).forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — ${p.receivedGlobal.toLocaleString('fr-FR')} € reçus (retard cumulé)`, nav: 'donors' }));
+          const monthsElapsed = isCurrentPeriod ? viewedDate.getMonth() + 1 : 12;
+          const weakPoles = poleStats.filter(p => p.expected > 0 && (p.receivedAnnuel ?? 0) < p.expected * monthsElapsed * 0.5);
+          weakPoles.slice(0, 2).forEach(p => actions.push({ icon: '⚠️', text: `${p.name.slice(0, 35)} — ${(p.receivedAnnuel ?? 0).toLocaleString('fr-FR')} € reçus (retard cumulé)`, nav: 'donors' }));
         }
-        if (totalArrete > 0)
+        if (isCurrentPeriod && totalArrete > 0)
           actions.push({ icon: '🟠', text: `${totalArrete} donateur${totalArrete > 1 ? 's arrêtés' : ' arrêté'} — campagne de réactivation recommandée`, nav: 'donors' });
         if (collectRate !== null && collectRate < 70)
           actions.push({ icon: '📉', text: `Taux de collecte ${isAnnual ? 'annuel' : 'mensuel'} faible : ${collectRate}% de l'objectif atteint`, nav: 'payments' });
@@ -391,46 +401,26 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
             <div className="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-indigo-500" />
               <h3 className="font-bold text-sm text-gray-800 dark:text-gray-100">
-                Synthèse {isAnnual ? 'de l\'année' : 'du mois'}
+                Synthèse — {isAnnual
+                  ? viewedDate.getFullYear()
+                  : `${MONTH_NAMES[viewedDate.getMonth()]} ${viewedDate.getFullYear()}`}
               </h3>
               {lastRefresh && (
                 <span className="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">
                   · mis à jour {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
-              {/* Period navigation */}
-              <div className="ml-auto flex items-center gap-1">
-              {navLoading && <Loader2 className="h-3.5 w-3.5 text-indigo-400 animate-spin mr-1" />}
+              <div className="ml-auto flex items-center gap-2">
+                {navLoading && <Loader2 className="h-3.5 w-3.5 text-indigo-400 animate-spin" />}
                 <button
-                  onClick={() => setViewOffset(v => v - 1)}
-                  className="p-1 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                  title={isAnnual ? 'Année précédente' : 'Mois précédent'}
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-50"
+                  title="Actualiser la synthèse"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2.5 py-1 rounded-full min-w-[90px] text-center">
-                  {isAnnual
-                    ? viewedDate.getFullYear()
-                    : `${MONTH_NAMES[viewedDate.getMonth()].slice(0, 3)} ${viewedDate.getFullYear()}`
-                  }
-                </span>
-                <button
-                  onClick={() => setViewOffset(v => Math.min(0, v + 1))}
-                  disabled={viewOffset >= 0}
-                  className="p-1 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                  title={isAnnual ? 'Année suivante' : 'Mois suivant'}
-                >
-                  <ChevronRight className="h-4 w-4" />
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
                 </button>
               </div>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors disabled:opacity-50"
-                title="Actualiser la synthèse"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
             </div>
 
             {/* Metric tiles */}
@@ -512,11 +502,21 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
 
       {/* ── KPIs ───────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-        <StatCard title={isCurrentPeriod ? "Donateurs Actifs" : "Ont payé"}  value={totalActive}  subtitle={`${retentionRate}% de fidélité`}                        icon={<CheckCircle2 />} color="green"  onClick={() => onNavigate?.('donors')} />
+        <StatCard
+          title={isCurrentPeriod ? "Donateurs Actifs" : "Ont payé"}
+          value={totalActive}
+          subtitle={`${retentionRate}% de fidélité`}
+          extra={isCurrentPeriod && apiStats ? (() => {
+            const paid = periodMode === 'annual' ? apiStats.kpis.donorsPaidYear : apiStats.kpis.donorsPaidMonth;
+            const label = periodMode === 'annual' ? 'ont payé cette année' : 'ont payé ce mois';
+            return paid != null ? `↳ ${paid} ${label}` : null;
+          })() : null}
+          icon={<CheckCircle2 />} color="green" onClick={() => onNavigate?.('donors')}
+        />
         <StatCard title={isCurrentPeriod ? "En Retard" : "N'ont pas payé"} value={totalDelayed} subtitle={`${delayedAmount.toLocaleString('fr-FR')} € à récupérer`} icon={<AlertCircle />}  color="red"    onClick={() => onNavigate?.('relances')} />
         <StatCard title="Attendu / mois"    value={`${expectedMonthly.toLocaleString('fr-FR')} €`} subtitle={`mensuel uniquement`}            icon={<CreditCard />}   color="blue"   onClick={() => onNavigate?.('payments')} />
         <StatCard title="Impayés cumulés"   value={`${delayedAmount.toLocaleString('fr-FR')} €`}   subtitle={`${totalArrete} arrêté${totalArrete > 1 ? 's' : ''}`} icon={<Clock />} color="orange" onClick={() => onNavigate?.('relances')} />
-        <StatCard title="Dons ponctuels"    value={`${ponctuelsThisMonth.toLocaleString('fr-FR')} €`} subtitle={`${ponctuelsCount} donateur${ponctuelsCount > 1 ? 's' : ''} ce mois`} icon={<Sparkles />} color="purple" onClick={() => onNavigate?.('donors')} />
+        <StatCard title="Dons ponctuels"    value={`${(periodMode === 'annual' ? (apiStats?.kpis.ponctuelsThisYear ?? 0) : ponctuelsThisMonth).toLocaleString('fr-FR')} €`} subtitle={`${ponctuelsCount} donateur${ponctuelsCount > 1 ? 's' : ''} ponctuels`} icon={<Sparkles />} color="purple" onClick={() => onNavigate?.('donors')} />
       </div>
 
       {/* ── TABS ───────────────────────────────────────────────────────────── */}

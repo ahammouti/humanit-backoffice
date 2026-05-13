@@ -5,8 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:3001',
-      '/webhooks': 'http://localhost:3001',
+      '/api': 'https://humanit-api.onrender.com',
+      '/webhooks': 'https://humanit-api.onrender.com',
     },
   },
 });

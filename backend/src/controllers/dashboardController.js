@@ -63,7 +63,9 @@ export const getStats = async (req, res, next) => {
     const endOfMonth      = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     const startOfPrevYear = new Date(now.getFullYear() - 1, 0, 1);
     const endOfPrevYear   = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
-    const poleFilter   = { pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' } };
+    // Payment filter: no helloassoState restriction — historical totals must include all forms (Private/Disabled)
+    // regardless of their current state, so data matches HelloAsso for any given period.
+    const paymentPoleFilter = pole ? { pole: { name: pole } } : {};
 
     // Parallel aggregations — no full table scans
     const [
@@ -108,11 +110,7 @@ export const getStats = async (req, res, next) => {
       }),
 
       prisma.payment.findMany({
-        where: {
-          status: 'Paye',
-          date: { gte: sixMonthsAgo },
-          pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' },
-        },
+        where: { status: 'Paye', date: { gte: sixMonthsAgo }, ...paymentPoleFilter },
         select: { date: true, amount: true },
         orderBy: { date: 'asc' },
       }),
@@ -131,20 +129,20 @@ export const getStats = async (req, res, next) => {
         _sum: { amount: true },
       }),
 
-      prisma.pole.findMany({ select: { id: true, name: true }, where: { helloassoState: 'Public' } }),
+      prisma.pole.findMany({ select: { id: true, name: true, helloassoState: true } }),
 
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
 
       prisma.payment.groupBy({
         by: ['poleId'],
-        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
 
@@ -179,13 +177,13 @@ export const getStats = async (req, res, next) => {
       // Per-pole all-time received
       prisma.payment.groupBy({
         by: ['poleId'],
-        where: { status: 'Paye', ...poleFilter },
+        where: { status: 'Paye', ...paymentPoleFilter },
         _sum: { amount: true },
       }),
       // Per-pole this month received
       prisma.payment.groupBy({
         by: ['poleId'],
-        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
       // Per-pole ACTIF count
@@ -204,34 +202,40 @@ export const getStats = async (req, res, next) => {
       prisma.donor.count({ where: { ...donorWhere, paymentFrequency: 'ponctuel', status: { not: 'ARRETE' } } }),
       // Ponctuel payments this year
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, donor: { paymentFrequency: 'ponctuel' }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
       // Ponctuel payments this month
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, donor: { paymentFrequency: 'ponctuel' }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, donor: { paymentFrequency: 'ponctuel' }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
       // Previous year total (for annual trend)
       prisma.payment.aggregate({
-        where: { status: 'Paye', date: { gte: startOfPrevYear, lte: endOfPrevYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfPrevYear, lte: endOfPrevYear }, ...paymentPoleFilter },
         _sum: { amount: true },
       }),
       // Full year payments (for 12-month chart)
       prisma.payment.findMany({
-        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
+        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...paymentPoleFilter },
         select: { date: true, amount: true },
         orderBy: { date: 'asc' },
       }),
-      // Distinct donors who paid this month
+      // Distinct MENSUEL Public-pole donors who paid this month (base for fidélité — consistent with mensuelsAtEndOfMonth)
       prisma.payment.findMany({
-        where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...poleFilter },
+        where: {
+          status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth },
+          donor: { paymentFrequency: 'mensuel', deletedAt: null, pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' } },
+        },
         select: { donorId: true },
         distinct: ['donorId'],
       }),
-      // Distinct donors who paid this year
+      // Distinct MENSUEL Public-pole donors who paid this year
       prisma.payment.findMany({
-        where: { status: 'Paye', date: { gte: startOfYear, lte: endOfYear }, ...poleFilter },
+        where: {
+          status: 'Paye', date: { gte: startOfYear, lte: endOfYear },
+          donor: { paymentFrequency: 'mensuel', deletedAt: null, pole: pole ? { name: pole, helloassoState: 'Public' } : { helloassoState: 'Public' } },
+        },
         select: { donorId: true },
         distinct: ['donorId'],
       }),
@@ -293,8 +297,11 @@ export const getStats = async (req, res, next) => {
       monthlyStats.push({ month, year, received, expected: expectedMonthly });
     }
 
-    // By pole — join groupBy result with pole names
-    const poleNameMap = new Map(allPoles.map(p => [p.id, p.name]));
+    // Split poles: all for payment name mapping, Public only for "Par projet" tab
+    const publicPoles  = allPoles.filter(p => p.helloassoState === 'Public');
+
+    // By pole — join groupBy result with pole names (Public only for donor stats)
+    const poleNameMap = new Map(publicPoles.map(p => [p.id, p.name]));
     const byPole = poleGroups
       .map(g => ({
         name:   poleNameMap.get(g.poleId) ?? 'Sans pôle',
@@ -303,14 +310,26 @@ export const getStats = async (req, res, next) => {
       }))
       .sort((a, b) => b.amount - a.amount);
 
-    // Per-pole collected this year (for financialData pie chart)
+    // Per-pole collected this year & this month — all poles (no helloassoState filter)
     const byPoleCollectedMap = new Map(byPoleCollectedAnnuel.map(g => [g.poleId, g._sum.amount ?? 0]));
-    const byPoleCollected = allPoles.map(p => ({
-      name:   p.name,
-      annuel: byPoleCollectedMap.get(p.id) ?? 0,
-    })).filter(p => p.annuel > 0);
 
-    // byPoleStats — full per-pole breakdown for "Par projet" tab
+    // Per-pole monthly data (separate query after main batch)
+    const byPoleCollectedMensuelAgg = await prisma.payment.groupBy({
+      by: ['poleId'],
+      where: { status: 'Paye', date: { gte: startOfMonth, lte: endOfMonth }, ...paymentPoleFilter },
+      _sum: { amount: true },
+    });
+    const byPoleCollectedMensuelMap = new Map(byPoleCollectedMensuelAgg.map(g => [g.poleId, g._sum.amount ?? 0]));
+
+    const byPoleCollected = allPoles
+      .map(p => ({
+        name:    p.name,
+        annuel:  byPoleCollectedMap.get(p.id) ?? 0,
+        mensuel: byPoleCollectedMensuelMap.get(p.id) ?? 0,
+      }))
+      .filter(p => p.annuel > 0 || p.mensuel > 0);
+
+    // byPoleStats — full per-pole breakdown for "Par projet" tab (Public poles only)
     const expectedMap         = new Map(expectedByPole.map(g => [g.poleId, g._sum.amount ?? 0]));
     const receivedGlobalMap   = new Map(receivedGlobalByPole.map(g => [g.poleId, g._sum.amount ?? 0]));
     const receivedMonthMap    = new Map(receivedThisMonthByPole.map(g => [g.poleId, g._sum.amount ?? 0]));
@@ -328,7 +347,7 @@ export const getStats = async (req, res, next) => {
       delayCountMap.set(d.poleId,  (delayCountMap.get(d.poleId)  ?? 0) + 1);
     }
 
-    const byPoleStats = allPoles
+    const byPoleStats = publicPoles
       .map(p => {
         const exp   = expectedMap.get(p.id) ?? 0;
         const recM  = receivedMonthMap.get(p.id) ?? 0;
@@ -337,6 +356,7 @@ export const getStats = async (req, res, next) => {
           expected:          exp,
           delayedAmount:     delayAmountMap.get(p.id) ?? 0,
           receivedThisMonth: recM,
+          receivedAnnuel:    byPoleCollectedMap.get(p.id) ?? 0,
           receivedGlobal:    receivedGlobalMap.get(p.id) ?? 0,
           delayCount:        delayCountMap.get(p.id) ?? 0,
           activeCount:       activeMap.get(p.id) ?? 0,
