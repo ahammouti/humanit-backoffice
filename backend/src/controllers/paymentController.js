@@ -21,8 +21,8 @@ const paymentSchema = z.object({
 
 const serialize = (p) => ({
   id: p.id,
-  date: new Date(p.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
-        new Date(p.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+  date: new Date(p.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris' }) + ' ' +
+        new Date(p.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
   timestamp: new Date(p.date).getTime(),
   donorId: p.donorId,
   donor: p.donor ? `${p.donor.firstName} ${p.donor.lastName}` : '',
