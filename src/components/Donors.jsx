@@ -363,7 +363,8 @@ function SortHeader({ col, label, sortBy, sortOrder, onSort, right = false }) {
 }
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donorsTotalPages = 1, onPageChange, search = '', onSearchChange, filterStatus = 'all', onFilterStatusChange, filterDelay = '', onFilterDelayChange, filterPole = '', onFilterPoleChange, filterFrequency = 'all', onFilterFrequencyChange, sortBy = 'createdAt', sortOrder = 'desc', onSortChange, polesData = [], poles, onAdd, onUpdate, onBulkUpdateStatus, onBulkDelete, onDelete, onAddPayment, onAddRelance, onRgpdExport, onRgpdDelete, trashedDonors = [], onLoadTrash, onRestoreDonor, onPurgeDonor, addNotification, can, initialOpenDonor, onClearInitialDonor }) {
+export default function Donors({ tableLoading = false, donors, donorsTotal = 0, donorsPage = 1, donorsTotalPages = 1, onPageChange, search = '', onSearchChange, filterStatus = 'all', onFilterStatusChange, filterDelay = '', onFilterDelayChange, filterPole = '', onFilterPoleChange, filterFrequency = 'all', onFilterFrequencyChange, sortBy = 'createdAt', sortOrder = 'desc', onSortChange, polesData = [], poles, onAdd, onUpdate, onBulkUpdateStatus, onBulkDelete, onDelete, onAddPayment, onAddRelance, onRgpdExport, onRgpdDelete, trashedDonors = [], onLoadTrash, onRestoreDonor, onPurgeDonor, addNotification, can, initialOpenDonor, onClearInitialDonor }) {
+  const [localSearch, setLocalSearch] = useState(search ?? '');
   const [filterMethod, setFilterMethod] = useState('all');
   const [selectedDonor, setSelectedDonor] = useState(null);
   const [editingDonor, setEditingDonor]   = useState(null);
@@ -561,8 +562,8 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
               type="text"
               placeholder="Nom, email…"
               className="pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-72 shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-              value={search}
-              onChange={e => onSearchChange?.(e.target.value)}
+              value={localSearch}
+              onChange={e => { setLocalSearch(e.target.value); onSearchChange?.(e.target.value); }}
             />
           </div>
           <select value={filterStatus} onChange={e => onFilterStatusChange?.(e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm">
@@ -626,6 +627,12 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
 
       {/* TABLE */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
+        {tableLoading && (
+          <div className="h-0.5 bg-blue-100 dark:bg-blue-900/30 overflow-hidden relative">
+            <div className="absolute h-full bg-blue-500 rounded-full" style={{width:'40%', animation:'slideRight 1.1s ease-in-out infinite'}} />
+            <style>{`@keyframes slideRight{0%{left:-40%}100%{left:140%}}`}</style>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -650,7 +657,7 @@ export default function Donors({ donors, donorsTotal = 0, donorsPage = 1, donors
                 <th className="px-4 py-3 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className={`divide-y divide-gray-100 dark:divide-gray-700 transition-opacity duration-200 ${tableLoading ? 'opacity-50' : 'opacity-100'}`}>
               {filtered.map(donor => (
                 <tr key={donor.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${selectedIds.has(donor.id) ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}>
                   <td className="pl-4 pr-2 py-3">

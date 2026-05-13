@@ -44,8 +44,9 @@ export default function App() {
   const [retardDonors,  setRetardDonors]  = useState([]);
   const [polesData,     setPolesData]     = useState([]);
   const [envois,      setEnvois]      = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [tabLoading,  setTabLoading]  = useState(null);
+  const [loading,            setLoading]            = useState(true);
+  const [tabLoading,         setTabLoading]         = useState(null);
+  const [donorsTableLoading, setDonorsTableLoading] = useState(false);
   const [urgentCount, setUrgentCount] = useState(0);
   const [dashboardKey, setDashboardKey] = useState(0);
   const [donorSearch,     setDonorSearch]     = useState('');
@@ -105,7 +106,7 @@ export default function App() {
 
     const run = async () => {
       if (currentTab === 'donors') {
-        await loadDonorsPage(1, { sortBy: donorSortBy, sortOrder: donorSortOrder });
+        await loadDonorsPage(1, { sortBy: donorSortBy, sortOrder: donorSortOrder }, { fullSkeleton: true });
         return;
       }
       setTabLoading(currentTab);
@@ -157,8 +158,9 @@ export default function App() {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
-  const loadDonorsPage = useCallback(async (page, overrides = {}) => {
-    setTabLoading('donors');
+  const loadDonorsPage = useCallback(async (page, overrides = {}, { fullSkeleton = false } = {}) => {
+    if (fullSkeleton) setTabLoading('donors');
+    else setDonorsTableLoading(true);
     try {
       const params = { page, limit: 50, ...overrides };
       const res = await donorsApi.getDonors(params);
@@ -170,6 +172,7 @@ export default function App() {
       addNotification('Erreur chargement donateurs', 'warning');
     } finally {
       setTabLoading(null);
+      setDonorsTableLoading(false);
     }
   }, [addNotification]);
 
@@ -709,6 +712,7 @@ export default function App() {
               )}
               {currentTab === 'donors' && (
                 <Donors
+                  tableLoading={donorsTableLoading}
                   donors={donors} donorsTotal={donorsTotal} donorsPage={donorsPage} donorsTotalPages={donorsTotalPages}
                   onPageChange={(p) => {
                     const overrides = {};
