@@ -20,17 +20,22 @@ router.post('/helloasso', async (req, res) => {
   const signature = req.headers['x-helloasso-signature'] ?? '';
   const rawBody = req.body;
 
-  if (!verifyWebhookSignature(rawBody, signature)) {
-    logger.warn('[Webhook] Signature HelloAsso invalide — ignoré');
-    return;
-  }
-
+  // rawBody peut être un Buffer (express.raw) ou un objet déjà parsé (proxy JSON)
   let event;
-  try {
-    event = JSON.parse(rawBody.toString());
-  } catch {
-    logger.warn('[Webhook] Body non-JSON ignoré');
-    return;
+  if (rawBody && typeof rawBody === 'object' && !Buffer.isBuffer(rawBody)) {
+    // Déjà parsé (proxy ou middleware upstream)
+    event = rawBody;
+  } else {
+    if (rawBody && !verifyWebhookSignature(rawBody, signature)) {
+      logger.warn('[Webhook] Signature HelloAsso invalide — ignoré');
+      return;
+    }
+    try {
+      event = JSON.parse(rawBody ? rawBody.toString() : '{}');
+    } catch {
+      logger.warn('[Webhook] Body non-JSON ignoré');
+      return;
+    }
   }
 
   logger.info(`[Webhook] HelloAsso event: ${event.eventType}`);
