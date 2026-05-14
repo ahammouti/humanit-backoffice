@@ -24,7 +24,7 @@ function calcEnvoiTotal(envoi) {
   return Math.round((sub + frais) * 100) / 100;
 }
 
-const PALETTE = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899'];
+const PALETTE = ['#10b981','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899','#f97316','#14b8a6','#a855f7','#eab308','#0ea5e9'];
 
 function DonutChart({ data, centerLabel, centerValue }) {
   const S = 180, cx = 90, cy = 90, r = 61, sw = 30;
@@ -318,11 +318,13 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     let pieData;
     if (!selectedPole && apiStats?.byPoleCollected?.length) {
       const hasMensuel = apiStats.byPoleCollected.some(p => p.mensuel !== undefined);
-      const candidates = apiStats.byPoleCollected.map((p, i) => ({
+      const candidates = apiStats.byPoleCollected.map(p => ({
         label: p.name,
-        color: PALETTE[i % PALETTE.length],
         value: (periodMode === 'monthly' && hasMensuel) ? (p.mensuel ?? 0) : (p.annuel ?? 0),
-      })).filter(d => d.value > 0);
+      })).filter(d => d.value > 0).map((d, i) => ({
+        ...d,
+        color: PALETTE[i % PALETTE.length],
+      }));
       // If no per-pole data for this period, fall through to collecte/depense pie
       pieData = candidates.length > 0 ? candidates : null;
     }
