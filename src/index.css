@@ -19,20 +19,29 @@ body {
   background-color: #f9fafb;
 }
 
-/* ─── Dark mode: explicit overrides (same mechanism as the scrollbar) ─── */
+/* ─── Dark background theme variables (RGB for opacity variants) ─── */
+html.dark {
+  --dk-bg:  17,24,39;      /* gray-900: page background */
+  --dk-s1:  31,41,55;      /* gray-800: cards, header */
+  --dk-s2:  55,65,81;      /* gray-700: secondary */
+}
+
+/* ─── Dark mode: explicit overrides ─── */
 
 /* Backgrounds */
-.dark body                     { background-color: #111827; color: #f9fafb; }
-.dark .bg-white                { background-color: #1f2937 !important; }
-.dark .bg-gray-50              { background-color: #111827 !important; }
-.dark .bg-gray-100             { background-color: #111827 !important; }
-.dark .bg-gray-50\/50          { background-color: rgba(17,24,39,.5) !important; }
+.dark body                     { background-color: rgb(var(--dk-bg)); color: #f9fafb; }
+.dark .bg-white                { background-color: rgb(var(--dk-s1)) !important; }
+.dark .bg-gray-50              { background-color: rgb(var(--dk-bg)) !important; }
+.dark .bg-gray-100             { background-color: rgb(var(--dk-bg)) !important; }
+.dark .bg-gray-50\/50          { background-color: rgba(var(--dk-bg), 0.5) !important; }
+.dark .bg-gray-800             { background-color: rgb(var(--dk-s1)) !important; }
+.dark .bg-gray-900             { background-color: rgb(var(--dk-bg)) !important; }
 
 /* Headers and nav sections */
-.dark header                   { background-color: #1f2937 !important; border-bottom-color: #374151 !important; }
+.dark header                   { background-color: rgb(var(--dk-s1)) !important; border-bottom-color: rgb(var(--dk-s2)) !important; }
 
-/* Section / card header rows (bg-gray-50 inside components) */
-.dark .bg-gray-700\/50         { background-color: rgba(55,65,81,.5) !important; }
+/* Section / card header rows */
+.dark .bg-gray-700\/50         { background-color: rgba(var(--dk-s2), 0.5) !important; }
 
 /* Borders */
 .dark .border-gray-100         { border-color: #374151 !important; }

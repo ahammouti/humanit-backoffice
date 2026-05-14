@@ -38,6 +38,23 @@ export const THEMES = {
   amber:  { label: 'Ambre',      bg: '#451a03', active: '#78350f', hover: 'rgba(120,53,15,0.6)',  border: 'rgba(120,53,15,0.6)',  navBorder: '#fbbf24', btn: '#b45309', btnH: '#d97706', preview: '#d97706' },
 };
 
+export const DARK_BG_PRESETS = {
+  gray:  { label: 'Gris classique', bg: '17,24,39',   s1: '31,41,55',   s2: '55,65,81',   preview: '#111827' },
+  slate: { label: 'Slate sombre',   bg: '15,23,42',   s1: '30,41,59',   s2: '51,65,85',   preview: '#0f172a' },
+  zinc:  { label: 'Zinc',           bg: '9,9,11',     s1: '24,24,27',   s2: '39,39,42',   preview: '#09090b' },
+  black: { label: 'Noir pur',       bg: '0,0,0',      s1: '15,15,15',   s2: '30,30,30',   preview: '#000000' },
+  warm:  { label: 'Brun chaud',     bg: '28,20,14',   s1: '41,31,22',   s2: '64,52,40',   preview: '#1c140e' },
+  navy:  { label: 'Marine profond', bg: '8,14,44',    s1: '15,25,65',   s2: '25,40,90',   preview: '#080e2c' },
+};
+
+function applyDarkBg(key) {
+  const p = DARK_BG_PRESETS[key] ?? DARK_BG_PRESETS.gray;
+  const r = document.documentElement.style;
+  r.setProperty('--dk-bg', p.bg);
+  r.setProperty('--dk-s1', p.s1);
+  r.setProperty('--dk-s2', p.s2);
+}
+
 function applyTheme(key) {
   const t = THEMES[key] ?? THEMES.blue;
   const r = document.documentElement.style;
@@ -60,6 +77,7 @@ export function AppProvider({ children }) {
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('hm_dark') === 'true');
   const [accentTheme, setAccentThemeState] = useState(() => localStorage.getItem('hm_theme') || 'blue');
+  const [darkBg, setDarkBgState] = useState(() => localStorage.getItem('hm_darkbg') || 'gray');
   const [activityLog, setActivityLog] = useState([]);
 
   useLayoutEffect(() => {
@@ -72,7 +90,13 @@ export function AppProvider({ children }) {
     localStorage.setItem('hm_theme', accentTheme);
   }, [accentTheme]);
 
+  useLayoutEffect(() => {
+    applyDarkBg(darkBg);
+    localStorage.setItem('hm_darkbg', darkBg);
+  }, [darkBg]);
+
   const setAccentTheme = useCallback((key) => setAccentThemeState(key), []);
+  const setDarkBg = useCallback((key) => setDarkBgState(key), []);
 
   // Verify token on mount — non-blocking, user already shown from localStorage cache
   useEffect(() => {
@@ -145,7 +169,7 @@ export function AppProvider({ children }) {
   }, [currentUser]);
 
   return (
-    <AppContext.Provider value={{ currentUser, login, logout, isDark, toggleDark, accentTheme, setAccentTheme, activityLog, logAction, can }}>
+    <AppContext.Provider value={{ currentUser, login, logout, isDark, toggleDark, accentTheme, setAccentTheme, darkBg, setDarkBg, activityLog, logAction, can }}>
       {children}
     </AppContext.Provider>
   );
