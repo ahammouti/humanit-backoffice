@@ -28,10 +28,11 @@ export function NavItem({ icon, label, active, onClick, badge }) {
   return (
     <button
       onClick={onClick}
+      style={active ? { backgroundColor: 'var(--s-active)', borderLeftColor: 'var(--s-nav-border)' } : {}}
       className={`w-full flex items-center gap-3 px-5 py-2.5 text-sm font-medium transition-all border-l-4 ${
         active
-          ? 'bg-blue-900 text-white border-blue-400'
-          : 'text-blue-300 hover:bg-blue-900/60 hover:text-white border-transparent'
+          ? 'text-white'
+          : 'text-blue-300 sidebar-nav-inactive hover:text-white border-transparent'
       }`}
     >
       {React.cloneElement(icon, { className: 'h-4 w-4 flex-shrink-0' })}

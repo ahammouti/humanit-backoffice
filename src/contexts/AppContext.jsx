@@ -29,6 +29,27 @@ export const LOG_ACTIONS = {
   SIMULATE:     '🔔 Don simulé',
 };
 
+export const THEMES = {
+  blue:   { label: 'Bleu nuit',  bg: '#0c1a47', active: '#1e3a8a', hover: 'rgba(30,58,138,0.6)',  border: 'rgba(30,58,138,0.6)',  navBorder: '#60a5fa', btn: '#1d4ed8', btnH: '#2563eb', preview: '#2563eb' },
+  violet: { label: 'Violet',     bg: '#2e1065', active: '#4c1d95', hover: 'rgba(76,29,149,0.6)',  border: 'rgba(76,29,149,0.6)',  navBorder: '#a78bfa', btn: '#6d28d9', btnH: '#7c3aed', preview: '#7c3aed' },
+  green:  { label: 'Vert forêt', bg: '#022c22', active: '#064e3b', hover: 'rgba(6,78,59,0.6)',    border: 'rgba(6,78,59,0.6)',    navBorder: '#34d399', btn: '#047857', btnH: '#059669', preview: '#059669' },
+  rose:   { label: 'Rose',       bg: '#4c0519', active: '#881337', hover: 'rgba(136,19,55,0.6)',  border: 'rgba(136,19,55,0.6)',  navBorder: '#fb7185', btn: '#be123c', btnH: '#e11d48', preview: '#e11d48' },
+  slate:  { label: 'Ardoise',    bg: '#0f172a', active: '#1e293b', hover: 'rgba(30,41,59,0.7)',   border: 'rgba(30,41,59,0.7)',   navBorder: '#818cf8', btn: '#4338ca', btnH: '#6366f1', preview: '#6366f1' },
+  amber:  { label: 'Ambre',      bg: '#451a03', active: '#78350f', hover: 'rgba(120,53,15,0.6)',  border: 'rgba(120,53,15,0.6)',  navBorder: '#fbbf24', btn: '#b45309', btnH: '#d97706', preview: '#d97706' },
+};
+
+function applyTheme(key) {
+  const t = THEMES[key] ?? THEMES.blue;
+  const r = document.documentElement.style;
+  r.setProperty('--s-bg',         t.bg);
+  r.setProperty('--s-active',     t.active);
+  r.setProperty('--s-hover',      t.hover);
+  r.setProperty('--s-border',     t.border);
+  r.setProperty('--s-nav-border', t.navBorder);
+  r.setProperty('--s-btn',        t.btn);
+  r.setProperty('--s-btn-h',      t.btnH);
+}
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -38,12 +59,20 @@ export function AppProvider({ children }) {
   });
 
   const [isDark, setIsDark] = useState(() => localStorage.getItem('hm_dark') === 'true');
+  const [accentTheme, setAccentThemeState] = useState(() => localStorage.getItem('hm_theme') || 'blue');
   const [activityLog, setActivityLog] = useState([]);
 
   useLayoutEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('hm_dark', String(isDark));
   }, [isDark]);
+
+  useLayoutEffect(() => {
+    applyTheme(accentTheme);
+    localStorage.setItem('hm_theme', accentTheme);
+  }, [accentTheme]);
+
+  const setAccentTheme = useCallback((key) => setAccentThemeState(key), []);
 
   // Verify token on mount — non-blocking, user already shown from localStorage cache
   useEffect(() => {
@@ -116,7 +145,7 @@ export function AppProvider({ children }) {
   }, [currentUser]);
 
   return (
-    <AppContext.Provider value={{ currentUser, login, logout, isDark, toggleDark, activityLog, logAction, can }}>
+    <AppContext.Provider value={{ currentUser, login, logout, isDark, toggleDark, accentTheme, setAccentTheme, activityLog, logAction, can }}>
       {children}
     </AppContext.Provider>
   );

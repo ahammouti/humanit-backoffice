@@ -31,7 +31,7 @@ import * as polesApi     from './api/poles.js';
 import * as dashboardApi from './api/dashboard.js';
 
 export default function App() {
-  const { currentUser, logout, isDark, toggleDark, logAction, activityLog, can } = useApp();
+  const { currentUser, logout, isDark, toggleDark, accentTheme, logAction, activityLog, can } = useApp();
 
   const [currentTab,   setCurrentTab]   = useState(() => localStorage.getItem('hm_tab') || 'dashboard');
   useEffect(() => { localStorage.setItem('hm_tab', currentTab); }, [currentTab]);
@@ -549,8 +549,8 @@ export default function App() {
       )}
 
       {/* SIDEBAR */}
-      <aside className={`w-60 bg-blue-950 text-white flex flex-col shadow-xl flex-shrink-0 fixed md:relative inset-y-0 left-0 z-50 transition-transform duration-300 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-        <div className="px-5 py-5 border-b border-blue-900/60 flex items-center justify-between">
+      <aside style={{ backgroundColor: 'var(--s-bg)' }} className={`w-60 text-white flex flex-col shadow-xl flex-shrink-0 fixed md:relative inset-y-0 left-0 z-50 transition-transform duration-300 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div style={{ borderColor: 'var(--s-border)' }} className="px-5 py-5 border-b flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold flex items-center gap-2">
               Humanit'R <Sparkles className="h-4 w-4 text-blue-300" />
@@ -574,7 +574,7 @@ export default function App() {
           <NavItem icon={<SettingsIcon />}    label="Paramètres"      active={currentTab === 'settings'}  onClick={() => navTo('settings')} />
         </nav>
 
-        <div className="p-4 border-t border-blue-900/60 space-y-2">
+        <div style={{ borderColor: 'var(--s-border)' }} className="p-4 border-t space-y-2">
           <div className="flex items-center gap-2.5 px-1 mb-3">
             <div className="w-8 h-8 rounded-full bg-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
               {currentUser.initials}
@@ -588,7 +588,8 @@ export default function App() {
           <button
             onClick={handleSyncAll}
             disabled={syncing}
-            className="w-full bg-blue-700 hover:bg-blue-600 disabled:opacity-60 text-white text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium"
+            style={{ backgroundColor: 'var(--s-btn)' }}
+          className="w-full disabled:opacity-60 text-white text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-colors font-medium hover:brightness-110"
           >
             <BellRing className="h-3.5 w-3.5" />
             {syncing ? 'Sync en cours…' : 'Sync HelloAsso'}

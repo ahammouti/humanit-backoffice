@@ -93,3 +93,15 @@ body {
 ::-webkit-scrollbar-track      { background: transparent; }
 ::-webkit-scrollbar-thumb      { background: #d1d5db; border-radius: 3px; }
 .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+
+/* ─── Accent theme variables ─── */
+:root {
+  --s-bg:         #0c1a47;
+  --s-active:     #1e3a8a;
+  --s-hover:      rgba(30,58,138,0.6);
+  --s-border:     rgba(30,58,138,0.6);
+  --s-nav-border: #60a5fa;
+  --s-btn:        #1d4ed8;
+  --s-btn-h:      #2563eb;
+}
+.sidebar-nav-inactive:hover { background-color: var(--s-hover) !important; }

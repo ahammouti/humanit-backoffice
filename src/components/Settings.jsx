@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Moon, Sun, Users, Shield, PlayCircle, AlertTriangle, CheckCircle } from 'lucide-react';
-import { useApp, ROLE_CFG } from '../contexts/AppContext';
+import { Plus, Trash2, Save, Moon, Sun, Users, Shield, PlayCircle, AlertTriangle, CheckCircle, Palette } from 'lucide-react';
+import { useApp, ROLE_CFG, THEMES } from '../contexts/AppContext';
 import { fetchSettings, updateSettings } from '../api/settings.js';
 import client from '../api/client.js';
 
@@ -22,7 +22,7 @@ const STATIC_USERS = [
 ];
 
 export default function Settings({ poles, polesData = [], onUpdatePoles, addNotification, can }) {
-  const { isDark, toggleDark } = useApp();
+  const { isDark, toggleDark, accentTheme, setAccentTheme } = useApp();
   const [newPole, setNewPole]   = useState('');
   const [dueDay, setDueDay]     = useState(15);
   const [autoArreteMonths, setAutoArreteMonths] = useState(12);
@@ -56,10 +56,13 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
 
       {/* APPEARANCE */}
       <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center gap-2">
+          <Palette className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           <h3 className="font-bold text-gray-800 dark:text-gray-200">Apparence</h3>
         </div>
-        <div className="p-5">
+        <div className="p-5 space-y-5">
+
+          {/* Mode sombre */}
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">Mode sombre</p>
@@ -74,6 +77,41 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
               </span>
             </button>
           </div>
+
+          {/* Couleur d'accentuation */}
+          <div>
+            <p className="font-medium text-gray-800 dark:text-gray-200 text-sm mb-3">Couleur du thème</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {Object.entries(THEMES).map(([key, t]) => (
+                <button
+                  key={key}
+                  onClick={() => { setAccentTheme(key); addNotification(`Thème "${t.label}" appliqué.`); }}
+                  className={`relative flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
+                    accentTheme === key
+                      ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700/50'
+                  }`}
+                >
+                  {/* Sidebar preview mini */}
+                  <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden shadow-sm" style={{ backgroundColor: t.bg }}>
+                    <div className="h-2 mt-1.5 mx-1 rounded-sm" style={{ backgroundColor: t.active }} />
+                    <div className="h-1.5 mt-1 mx-1 rounded-sm opacity-50" style={{ backgroundColor: t.navBorder }} />
+                    <div className="h-1.5 mt-0.5 mx-1 rounded-sm opacity-30" style={{ backgroundColor: t.navBorder }} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{t.label}</p>
+                    <div className="w-4 h-1.5 rounded-full mt-1" style={{ backgroundColor: t.preview }} />
+                  </div>
+                  {accentTheme === key && (
+                    <div className="absolute top-1.5 right-1.5 w-3 h-3 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center">
+                      <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 8 8"><path d="M1.5 4l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
         </div>
       </section>
 
