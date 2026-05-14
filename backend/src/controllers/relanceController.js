@@ -51,3 +51,30 @@ export const createRelance = async (req, res, next) => {
     next(err);
   }
 };
+
+export const deleteRelance = async (req, res, next) => {
+  try {
+    const relance = await prisma.relance.findUnique({ where: { id: req.params.id } });
+    if (!relance) return res.status(404).json({ error: 'Relance introuvable' });
+
+    await prisma.relance.delete({ where: { id: req.params.id } });
+
+    // Recalcule lastContactDate/Result depuis les relances restantes
+    const latest = await prisma.relance.findFirst({
+      where: { donorId: relance.donorId },
+      orderBy: { date: 'desc' },
+    });
+
+    await prisma.donor.update({
+      where: { id: relance.donorId },
+      data: {
+        lastContactDate:   latest?.date   ?? null,
+        lastContactResult: latest?.result ?? null,
+      },
+    });
+
+    res.json({ success: true, donorId: relance.donorId });
+  } catch (err) {
+    next(err);
+  }
+};

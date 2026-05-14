@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Sparkles, Copy, Loader2, CheckCircle2, Clock, AlertCircle,
-  MessageSquare, Filter, ChevronDown, Phone, Mail, TrendingDown,
+  MessageSquare, Filter, ChevronDown, Phone, Mail, TrendingDown, Trash2,
 } from 'lucide-react';
 import { SourceBadge, Modal, FormField, Input, Select } from './ui';
 
@@ -20,14 +20,15 @@ Cordialement,
 L'équipe Humanit'R — Pôle Trésorerie`;
 
 function urgencyLevel(delayMonths, neverContacted) {
-  if (neverContacted && delayMonths >= 6) return 3;
-  if (delayMonths >= 6 || neverContacted) return 2;
-  return 1;
+  // Plus on intervient tôt, plus on a de chance de récupérer le donateur
+  if (neverContacted && delayMonths <= 2) return 3; // À contacter maintenant
+  if (neverContacted || delayMonths <= 3) return 2; // Urgent
+  return 1;                                          // Retard ancien — difficile
 }
 const URGENCY = {
-  3: { bar: 'bg-red-600',    text: 'text-red-600 dark:text-red-400',    badge: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',    card: 'border-l-red-600',    avatar: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',    label: 'Critique' },
+  3: { bar: 'bg-red-600',    text: 'text-red-600 dark:text-red-400',    badge: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800',    card: 'border-l-red-600',    avatar: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400',    label: 'À contacter maintenant' },
   2: { bar: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400', badge: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800', card: 'border-l-orange-500', avatar: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400', label: 'Urgent' },
-  1: { bar: 'bg-yellow-400', text: 'text-yellow-600 dark:text-yellow-400', badge: 'bg-yellow-50 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800',   card: 'border-l-yellow-400', avatar: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',  label: 'Modéré' },
+  1: { bar: 'bg-gray-400',   text: 'text-gray-500 dark:text-gray-400',   badge: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600',     card: 'border-l-gray-400',   avatar: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',    label: 'Retard ancien' },
 };
 
 function EmailModal({ donor, onClose, onMarkSent }) {
@@ -126,6 +127,11 @@ function LogRelanceModal({ donor, onSubmit, onClose }) {
   );
 }
 
+const GRACE_DAYS = 30;
+const isActionable = (d) =>
+  !d.lastContactDate ||
+  (Date.now() - new Date(d.lastContactDate).getTime()) / 86_400_000 >= GRACE_DAYS;
+
 const FILTERS = [
   { id: 'all',    label: 'Tous' },
   { id: 'never',  label: 'Jamais contactés' },
@@ -133,27 +139,37 @@ const FILTERS = [
   { id: 'recent', label: 'Récemment relancés' },
 ];
 
-export default function Relances({ donors, relances, onAdd, addNotification }) {
+export default function Relances({ donors, relances, onAdd, onRemove, addNotification }) {
   const [emailFor, setEmailFor] = useState(null);
   const [logFor, setLogFor]     = useState(null);
   const [tab, setTab]           = useState('todo');
   const [filter, setFilter]     = useState('all');
-  const [sortBy, setSortBy]     = useState('delay');
+  const [sortBy, setSortBy]     = useState('recovery');
 
   const toContact = useMemo(() => {
-    let list = donors.filter(d => d.status === 'RETARD');
-    if (filter === 'never')  list = list.filter(d => !d.lastContactDate);
-    if (filter === 'high')   list = list.filter(d => d.delayMonths >= 6);
-    if (filter === 'recent') list = list.filter(d => d.lastContactDate);
+    const retard = donors.filter(d => d.status === 'RETARD');
+    let list;
+    if (filter === 'all')         list = retard.filter(isActionable);
+    else if (filter === 'never')  list = retard.filter(d => !d.lastContactDate);
+    else if (filter === 'high')   list = retard.filter(d => d.delayMonths >= 6);
+    else if (filter === 'recent') list = retard.filter(d => !isActionable(d));
+    else list = retard;
     return list.sort((a, b) => {
+      if (sortBy === 'recovery') {
+        // Jamais contactés d'abord, puis délai croissant (récents = plus récupérables)
+        const aNever = !a.lastContactDate ? 0 : 1;
+        const bNever = !b.lastContactDate ? 0 : 1;
+        if (aNever !== bNever) return aNever - bNever;
+        return a.delayMonths - b.delayMonths;
+      }
       if (sortBy === 'delay')  return b.delayMonths - a.delayMonths;
       if (sortBy === 'amount') return (b.amount * b.delayMonths) - (a.amount * a.delayMonths);
-      if (sortBy === 'never')  return (!a.lastContactDate ? -1 : 1);
       return 0;
     });
   }, [donors, filter, sortBy]);
 
   const allRetard = donors.filter(d => d.status === 'RETARD');
+  const actionable   = allRetard.filter(isActionable);
   const neverCount   = allRetard.filter(d => !d.lastContactDate).length;
   const totalDue     = allRetard.reduce((s, d) => s + d.amount * d.delayMonths, 0);
   const criticalCount = allRetard.filter(d => urgencyLevel(d.delayMonths, !d.lastContactDate) === 3).length;
@@ -229,7 +245,7 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
             <button onClick={() => setTab('todo')} className={`px-3 md:px-5 py-1.5 md:py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'todo' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-              À relancer ({allRetard.length})
+              À relancer ({actionable.length})
             </button>
             <button onClick={() => setTab('history')} className={`px-3 md:px-5 py-1.5 md:py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'history' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
               Historique ({relances.length})
@@ -238,9 +254,9 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
           {tab === 'todo' && (
             <select value={sortBy} onChange={e => setSortBy(e.target.value)}
               className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-shrink-0">
-              <option value="delay">Délai</option>
-              <option value="amount">Montant</option>
-              <option value="never">Jamais contactés</option>
+              <option value="recovery">Récupérabilité</option>
+              <option value="delay">Délai ↓</option>
+              <option value="amount">Montant dû</option>
             </select>
           )}
         </div>
@@ -353,8 +369,8 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
               </div>
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {logs.map((r, i) => (
-                  <div key={r.id ?? i} className="px-4 py-2.5 flex items-start gap-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 mt-1.5 flex-shrink-0" />
+                  <div key={r.id ?? i} className="px-4 py-2.5 flex items-center gap-3 group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
                     <div className="flex-1 flex items-center gap-3 flex-wrap">
                       <span className="text-xs text-gray-400 dark:text-gray-500 w-20 flex-shrink-0">
                         {new Date(r.date).toLocaleDateString('fr-FR')}
@@ -364,6 +380,15 @@ export default function Relances({ donors, relances, onAdd, addNotification }) {
                       </span>
                       {r.note && <span className="text-xs text-gray-500 dark:text-gray-400 italic">{r.note}</span>}
                     </div>
+                    {onRemove && r.id && (
+                      <button
+                        onClick={() => onRemove(r.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-all rounded"
+                        title="Annuler cette relance"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

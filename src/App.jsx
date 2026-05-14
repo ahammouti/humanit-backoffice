@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import confetti from 'canvas-confetti';
 import {
   LayoutDashboard, Users, CreditCard, Bell,
   Settings as SettingsIcon, Sparkles, BellRing,
@@ -146,7 +147,10 @@ export default function App() {
           ]);
           setRelances(relancesRes);
           setRetardDonors(retardRes.data ?? []);
-          setUrgentCount(retardRes.data?.filter(d => !d.lastContactDate).length ?? 0);
+          setUrgentCount((retardRes.data ?? []).filter(d =>
+            !d.lastContactDate ||
+            (Date.now() - new Date(d.lastContactDate).getTime()) / 86_400_000 >= 30
+          ).length);
         } else if (currentTab === 'envois') {
           const res = await envoísApi.getEnvois();
           setEnvois(res);
@@ -373,6 +377,8 @@ export default function App() {
         setDonors((prev) => prev.map((d) => d.id === data.donorId ? updated : d));
       }
       logAction(LOG_ACTIONS.ADD_PAYMENT, data.donor, `${data.amount} € · ${data.source}`);
+      // Confetti discret sur paiement réussi
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 }, colors: ['#10b981','#3b82f6','#f59e0b','#8b5cf6'] });
     } catch (err) {
       addNotification(err.response?.data?.error ?? 'Erreur enregistrement paiement', 'warning');
     }
@@ -413,10 +419,39 @@ export default function App() {
       setRetardDonors((prev) => prev.map((d) => d.id === data.donorId ? updated : d));
       const d = donors.find((d) => d.id === data.donorId);
       if (d) logAction(LOG_ACTIONS.ADD_RELANCE, `${d.firstName} ${d.lastName}`, data.result);
+      // Recalculer urgentCount localement (30j de grâce après une relance)
+      const newRetard = retardDonors.map(d => d.id === data.donorId ? updated : d);
+      setUrgentCount(newRetard.filter(d =>
+        !d.lastContactDate ||
+        (Date.now() - new Date(d.lastContactDate).getTime()) / 86_400_000 >= 30
+      ).length);
+      // Invalider le cache dashboard pour que le widget recharge ses donors urgents
+      tabLoaded.current['dashboard'] = false;
+      setDashboardKey(k => k + 1);
     } catch {
       addNotification('Erreur enregistrement relance', 'warning');
     }
   }, [donors, logAction, addNotification]);
+
+  const removeRelance = useCallback(async (id) => {
+    try {
+      const { donorId } = await relancesApi.deleteRelance(id);
+      setRelances(prev => prev.filter(r => r.id !== id));
+      const updated = await donorsApi.getDonor(donorId);
+      setDonors(prev => prev.map(d => d.id === donorId ? updated : d));
+      const newRetard = retardDonors.map(d => d.id === donorId ? updated : d);
+      setRetardDonors(newRetard);
+      setUrgentCount(newRetard.filter(d =>
+        !d.lastContactDate ||
+        (Date.now() - new Date(d.lastContactDate).getTime()) / 86_400_000 >= 30
+      ).length);
+      tabLoaded.current['dashboard'] = false;
+      setDashboardKey(k => k + 1);
+      addNotification('↩ Relance annulée.');
+    } catch {
+      addNotification('Erreur annulation relance', 'warning');
+    }
+  }, [retardDonors, addNotification]);
 
   // ── SYNC COMPLET HELLOASSO ───────────────────────────────────────────────
   const [syncing, setSyncing] = useState(false);
@@ -839,6 +874,7 @@ export default function App() {
                 <Relances
                   donors={retardDonors} relances={relances}
                   onAdd={(data) => { addRelance(data); addNotification('📧 Relance enregistrée.'); }}
+                  onRemove={removeRelance}
                   addNotification={addNotification}
                 />
               )}

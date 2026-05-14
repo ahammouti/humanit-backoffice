@@ -5,3 +5,6 @@ export const getRelances = (params) =>
 
 export const createRelance = (data) =>
   api.post('/relances', data).then((r) => r.data);
+
+export const deleteRelance = (id) =>
+  api.delete(`/relances/${id}`).then((r) => r.data);
