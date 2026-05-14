@@ -57,9 +57,10 @@ function DonutChart({ data, centerLabel, centerValue }) {
 
   let cumLen = 0;
   const segments = valid.map(d => {
-    const segLen = Math.max(0, (d.value / total) * circ - 3);
+    const rawLen = (d.value / total) * circ;
+    const segLen = rawLen > 0 ? Math.max(4, rawLen - 3) : 0;
     const offset = -cumLen;
-    cumLen += (d.value / total) * circ;
+    cumLen += rawLen;
     return { ...d, segLen, offset };
   });
 
