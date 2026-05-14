@@ -15,6 +15,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import webhookRoutes from './routes/webhooks.js';
 import helloassoRoutes from './routes/helloasso.js';
 import settingsRoutes from './routes/settings.js';
+import memberRoutes  from './routes/members.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/helloasso', helloassoRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/members',  memberRoutes);
 
 app.get('/api/health', (_, res) => res.json({ status: 'ok' }));
 

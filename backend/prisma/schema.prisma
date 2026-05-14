@@ -161,3 +161,24 @@ enum EnvoiStatus {
   envoye
   en_cours
 }
+
+model Member {
+  id        String     @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String     @unique
+  phone     String?
+  type      MemberType @default(actif)
+  year      Int
+  paid      Boolean    @default(false)
+  joinDate  DateTime   @default(now())
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum MemberType {
+  actif
+  bienfaiteur
+  honneur
+}

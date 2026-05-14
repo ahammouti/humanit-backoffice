@@ -5,7 +5,7 @@ import {
   Settings as SettingsIcon, Sparkles, BellRing,
   Search, Moon, Sun, LogOut, Clock, Send,
   Calendar, CalendarDays, Trash2, Menu, X as XIcon, MoreHorizontal,
-  ChevronLeft, ChevronRight, ChevronDown,
+  ChevronLeft, ChevronRight, ChevronDown, UserCheck,
 } from 'lucide-react';
 
 const MONTH_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
@@ -23,6 +23,7 @@ import Settings      from './components/Settings';
 import ActivityLog   from './components/ActivityLog';
 import GlobalSearch  from './components/GlobalSearch';
 import Envois        from './components/Envois';
+import Members       from './components/Members';
 
 import * as donorsApi    from './api/donors.js';
 import * as paymentsApi  from './api/payments.js';
@@ -30,6 +31,7 @@ import * as relancesApi  from './api/relances.js';
 import * as envoísApi    from './api/envois.js';
 import * as polesApi     from './api/poles.js';
 import * as dashboardApi from './api/dashboard.js';
+import * as membersApi   from './api/members.js';
 
 export default function App() {
   const { currentUser, logout, isDark, toggleDark, accentTheme, logAction, activityLog, can } = useApp();
@@ -59,6 +61,7 @@ export default function App() {
   const [retardDonors,  setRetardDonors]  = useState([]);
   const [polesData,     setPolesData]     = useState([]);
   const [envois,      setEnvois]      = useState([]);
+  const [members,     setMembers]     = useState([]);
   const [loading,            setLoading]            = useState(true);
   const [tabLoading,         setTabLoading]         = useState(null);
   const [donorsTableLoading, setDonorsTableLoading] = useState(false);
@@ -154,6 +157,9 @@ export default function App() {
         } else if (currentTab === 'envois') {
           const res = await envoísApi.getEnvois();
           setEnvois(res);
+        } else if (currentTab === 'members') {
+          const res = await membersApi.getMembers();
+          setMembers(res);
         }
       } catch {
         addNotification('Erreur chargement', 'warning');
@@ -453,6 +459,37 @@ export default function App() {
     }
   }, [retardDonors, addNotification]);
 
+  // ── MEMBERS CRUD ────────────────────────────────────────────────────────
+  const addMember = useCallback(async (data) => {
+    try {
+      const m = await membersApi.createMember(data);
+      setMembers(prev => [...prev, m].sort((a, b) => a.lastName.localeCompare(b.lastName)));
+      addNotification(`✅ ${data.firstName} ${data.lastName} ajouté.`);
+    } catch (err) {
+      addNotification(err.response?.data?.error ?? 'Erreur ajout membre', 'warning');
+    }
+  }, [addNotification]);
+
+  const updateMember = useCallback(async (id, data) => {
+    try {
+      const m = await membersApi.updateMember(id, data);
+      setMembers(prev => prev.map(x => x.id === id ? m : x));
+      addNotification('Membre mis à jour.');
+    } catch (err) {
+      addNotification(err.response?.data?.error ?? 'Erreur modification membre', 'warning');
+    }
+  }, [addNotification]);
+
+  const deleteMember = useCallback(async (id) => {
+    try {
+      await membersApi.deleteMember(id);
+      setMembers(prev => prev.filter(x => x.id !== id));
+      addNotification('Membre supprimé.', 'warning');
+    } catch {
+      addNotification('Erreur suppression membre', 'warning');
+    }
+  }, [addNotification]);
+
   // ── SYNC COMPLET HELLOASSO ───────────────────────────────────────────────
   const [syncing, setSyncing] = useState(false);
 
@@ -602,6 +639,7 @@ export default function App() {
           <NavItem icon={<Users />}           label="Donateurs"       active={currentTab === 'donors'}    onClick={() => navTo('donors')} />
           <NavItem icon={<CreditCard />}      label="Paiements"       active={currentTab === 'payments'}  onClick={() => navTo('payments')} />
           <NavItem icon={<Bell />}            label="Relances"        active={currentTab === 'relances'}  onClick={() => navTo('relances')} badge={urgentCount} />
+          <NavItem icon={<UserCheck />}       label="Membres"         active={currentTab === 'members'}   onClick={() => navTo('members')} />
           <NavItem icon={<Send />}            label="Virements"       active={currentTab === 'envois'}    onClick={() => navTo('envois')} />
           {can('viewLog') && (
             <NavItem icon={<Clock />}         label="Journal"         active={currentTab === 'log'}       onClick={() => navTo('log')} />
@@ -667,6 +705,7 @@ export default function App() {
                 {currentTab === 'payments'  && "Paiements"}
                 {currentTab === 'relances'  && "Relances"}
                 {currentTab === 'log'       && "Journal"}
+                {currentTab === 'members'   && "Membres"}
                 {currentTab === 'envois'    && "Virements"}
                 {currentTab === 'settings'  && "Paramètres"}
               </h2>
@@ -876,6 +915,14 @@ export default function App() {
                   onAdd={(data) => { addRelance(data); addNotification('📧 Relance enregistrée.'); }}
                   onRemove={removeRelance}
                   addNotification={addNotification}
+                />
+              )}
+              {currentTab === 'members' && (
+                <Members
+                  members={members}
+                  onAdd={addMember}
+                  onUpdate={updateMember}
+                  onDelete={deleteMember}
                 />
               )}
               {currentTab === 'envois' && (
