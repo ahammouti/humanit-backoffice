@@ -4,7 +4,7 @@ import {
   Settings as SettingsIcon, Sparkles, BellRing,
   Search, Moon, Sun, LogOut, Clock, Send,
   Calendar, CalendarDays, Trash2, Menu, X as XIcon, MoreHorizontal,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ChevronDown,
 } from 'lucide-react';
 
 const MONTH_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
@@ -76,6 +76,17 @@ export default function App() {
   const [showSearch,      setShowSearch]       = useState(false);
   const [searchOpenDonor, setSearchOpenDonor]  = useState(null);
   const [mobileNavOpen,   setMobileNavOpen]    = useState(false);
+  const [poleDropOpen,    setPoleDropOpen]     = useState(false);
+  const poleDropRef = useRef(null);
+
+  useEffect(() => {
+    if (!poleDropOpen) return;
+    const handler = (e) => {
+      if (poleDropRef.current && !poleDropRef.current.contains(e.target)) setPoleDropOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [poleDropOpen]);
 
   // Derived: pole names array for components that expect string[]
   const poles = polesData
@@ -628,16 +639,35 @@ export default function App() {
             {/* Center — contrôles dashboard, taille naturelle */}
             {currentTab === 'dashboard' && (
               <div className="hidden md:flex items-center gap-2 flex-shrink-0">
-                <select
-                  value={selectedPole ?? ''}
-                  onChange={e => setSelectedPole(e.target.value || null)}
-                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm w-40"
-                >
-                  <option value="">Tous les projets</option>
-                  {polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => (
-                    <option key={p.id} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
+                {/* Custom pole dropdown — largeur fixe + troncature */}
+                <div ref={poleDropRef} className="relative">
+                  <button
+                    onClick={() => setPoleDropOpen(p => !p)}
+                    className="flex items-center gap-1.5 w-40 border border-gray-300 dark:border-gray-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 shadow-sm hover:border-blue-400 transition-colors"
+                  >
+                    <span className="flex-1 text-left truncate">{selectedPole ?? 'Tous les projets'}</span>
+                    <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                  </button>
+                  {poleDropOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1 max-h-64 overflow-y-auto">
+                      {[{ id: '__all__', name: null, label: 'Tous les projets' },
+                        ...polesData.filter(p => !p.helloassoState || p.helloassoState === 'Public').map(p => ({ ...p, label: p.name }))
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => { setSelectedPole(p.name ?? null); setPoleDropOpen(false); }}
+                          className={`w-full text-left px-3 py-2 text-sm truncate transition-colors ${
+                            (selectedPole ?? null) === (p.name ?? null)
+                              ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold'
+                              : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
                 <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5 gap-0.5">
                   <button onClick={() => { setPeriodMode('monthly'); setViewOffset(0); }} className={`flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${periodMode === 'monthly' ? 'bg-white dark:bg-gray-600 shadow-sm text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>
