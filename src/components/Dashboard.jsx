@@ -645,7 +645,10 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
                 <div className="flex-1 min-w-0 space-y-2.5">
                   {financialData.pieData.map((d, i) => {
                     const totalAll = financialData.pieData.reduce((s, x) => s + x.value, 0);
-                    const pct = totalAll > 0 ? Math.round(d.value / totalAll * 100) : 0;
+                    const rawPct = totalAll > 0 ? d.value / totalAll * 100 : 0;
+                    const pct = Math.round(rawPct);
+                    const pctLabel = rawPct > 0 && pct === 0 ? '<1%' : `${pct}%`;
+                    const barWidth = Math.max(rawPct, rawPct > 0 ? 0.5 : 0);
                     return (
                       <div key={i} className="space-y-1">
                         <div className="flex items-center justify-between gap-2">
@@ -655,11 +658,11 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{d.value.toLocaleString('fr-FR')} €</span>
-                            <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
+                            <span className="text-xs text-gray-400 w-8 text-right">{pctLabel}</span>
                           </div>
                         </div>
                         <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
-                          <div className="h-1 rounded-full transition-all" style={{ background: d.color, width: `${pct}%` }} />
+                          <div className="h-1 rounded-full transition-all" style={{ background: d.color, width: `${barWidth}%` }} />
                         </div>
                       </div>
                     );
