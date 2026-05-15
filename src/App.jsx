@@ -243,15 +243,17 @@ export default function App() {
   const updateDonor = useCallback(async (id, updates) => {
     try {
       const donor = await donorsApi.updateDonor(id, updates);
+      const isSamePerson = (d) =>
+        d.email === donor.email ||
+        (d.firstName === donor.firstName && d.lastName === donor.lastName);
       setDonors((prev) => prev.map((d) => {
         if (d.id === id) return donor;
-        // Propager le téléphone aux autres fiches du même email
-        if (updates.phone !== undefined && d.email === donor.email) return { ...d, phone: updates.phone };
+        if (updates.phone !== undefined && isSamePerson(d)) return { ...d, phone: updates.phone };
         return d;
       }));
       setRetardDonors((prev) => prev.map((d) => {
         if (d.id === id) return donor;
-        if (updates.phone !== undefined && d.email === donor.email) return { ...d, phone: updates.phone };
+        if (updates.phone !== undefined && isSamePerson(d)) return { ...d, phone: updates.phone };
         return d;
       }));
       // Si passage en ARRETE : notifier + forcer rechargement dashboard
