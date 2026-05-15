@@ -56,6 +56,7 @@ export const listDonors = async (req, res, next) => {
         { firstName:         { contains: s, mode: 'insensitive' } },
         { lastName:          { contains: s, mode: 'insensitive' } },
         { email:             { contains: s, mode: 'insensitive' } },
+        { phone:             { contains: s.replace(/\D/g, '') || s, mode: 'insensitive' } },
         { helloassoOrderId:  { contains: s, mode: 'insensitive' } },
         { helloassoMemberId: { contains: s, mode: 'insensitive' } },
       ];
