@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, Save, Moon, Sun, Users, Shield, PlayCircle, AlertTriangle, CheckCircle, Palette, Smartphone, RefreshCw } from 'lucide-react';
 import { useApp, ROLE_CFG, THEMES, DARK_BG_PRESETS } from '../contexts/AppContext';
 import { fetchSettings, updateSettings } from '../api/settings.js';
