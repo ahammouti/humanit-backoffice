@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import {
   listDonors, getDonor, createDonor, updateDonor, deleteDonor,
-  restoreDonor, purgeDonor, listTrashed,
+  restoreDonor, purgeDonor, listTrashed, syncPhones,
   rgpdExport, rgpdDelete,
 } from '../controllers/donorController.js';
 import { authenticate } from '../middleware/auth.js';
@@ -13,7 +13,8 @@ router.use(authenticate);
 
 router.get('/',        listDonors);
 router.post('/',       requireRole('tresorier'), createDonor);
-router.get('/trash',   requireRole('admin'), listTrashed);
+router.get('/trash',        requireRole('admin'), listTrashed);
+router.post('/sync-phones', requireRole('admin'), syncPhones);
 router.get('/:id',     getDonor);
 router.put('/:id',     requireRole('tresorier'), updateDonor);
 router.delete('/:id',  requireRole('admin'), deleteDonor);

@@ -216,6 +216,33 @@ export const restoreDonor = async (req, res, next) => {
   }
 };
 
+// Propage les téléphones existants à toutes les fiches du même nom ou email
+export const syncPhones = async (req, res, next) => {
+  try {
+    const donors = await prisma.donor.findMany({
+      where: { phone: { not: null }, deletedAt: null },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true },
+    });
+    let updated = 0;
+    for (const d of donors) {
+      const result = await prisma.donor.updateMany({
+        where: {
+          id: { not: d.id },
+          phone: null,
+          deletedAt: null,
+          OR: [
+            { email: d.email },
+            { firstName: d.firstName, lastName: d.lastName },
+          ],
+        },
+        data: { phone: d.phone },
+      });
+      updated += result.count;
+    }
+    res.json({ ok: true, updated });
+  } catch (err) { next(err); }
+};
+
 export const purgeDonor = async (req, res, next) => {
   try {
     const id = req.params.id;
