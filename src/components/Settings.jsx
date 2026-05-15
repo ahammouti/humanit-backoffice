@@ -553,22 +553,38 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
 }
 
 function WhatsAppSection({ addNotification }) {
-  const [status, setStatus]   = useState(null); // null | {state, qr}
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus]     = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [countdown, setCountdown] = useState(20);
+  const [qrKey, setQrKey]       = useState(0); // force re-render pour animation fade
+  const prevQrRef               = useRef(null);
 
   const fetchStatus = useCallback(async () => {
     try {
       const res = await client.get('/whatsapp/status');
-      setStatus(res.data);
+      setStatus(prev => {
+        if (res.data.qr && res.data.qr !== prevQrRef.current) {
+          prevQrRef.current = res.data.qr;
+          setQrKey(k => k + 1);
+          setCountdown(20);
+        }
+        return res.data;
+      });
     } catch { /* backend pas encore dispo */ }
   }, []);
 
   useEffect(() => {
     fetchStatus();
-    // Poll toutes les 5s quand QR affiché pour détecter la connexion
     const id = setInterval(fetchStatus, 5_000);
     return () => clearInterval(id);
   }, [fetchStatus]);
+
+  // Countdown 1s tick quand QR visible
+  useEffect(() => {
+    if (status?.state !== 'qr') return;
+    const id = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1_000);
+    return () => clearInterval(id);
+  }, [status?.state]);
 
   const handleLogout = async () => {
     setLoading(true);
@@ -581,14 +597,16 @@ function WhatsAppSection({ addNotification }) {
   };
 
   const STATE_INFO = {
-    connected:    { label: 'Connecté',          cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-    qr:           { label: 'Scan QR requis',     cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-    connecting:   { label: 'Connexion...',        cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-    logged_out:   { label: 'Déconnecté',          cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-    disconnected: { label: 'Déconnecté',          cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
+    connected:    { label: 'Connecté',       cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    qr:           { label: 'Scan QR requis', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+    connecting:   { label: 'Connexion...',   cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    logged_out:   { label: 'Déconnecté',     cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+    disconnected: { label: 'Déconnecté',     cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
   };
 
   const info = status ? (STATE_INFO[status.state] ?? STATE_INFO.disconnected) : null;
+  const pct  = (countdown / 20) * 100;
+  const r    = 52; const circ = 2 * Math.PI * r;
 
   return (
     <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
@@ -597,7 +615,7 @@ function WhatsAppSection({ addNotification }) {
           <Smartphone className="h-4 w-4 text-green-600 dark:text-green-400" />
           <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">WhatsApp — Notifications automatiques</h3>
         </div>
-        <button onClick={fetchStatus} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+        <button onClick={fetchStatus} title="Rafraîchir" className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <RefreshCw className="h-4 w-4" />
         </button>
       </div>
@@ -611,23 +629,49 @@ function WhatsAppSection({ addNotification }) {
         </div>
 
         {status?.state === 'qr' && status.qr && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Scannez ce QR avec <strong>WhatsApp → Appareils liés → Lier un appareil</strong>.
               La connexion est persistante — un seul scan suffit.
             </p>
-            <div className="flex justify-center">
-              <img src={status.qr} alt="WhatsApp QR Code" className="w-52 h-52 rounded-xl border-4 border-green-500 shadow-lg" />
+
+            {/* QR + countdown cercle superposé */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative inline-flex items-center justify-center">
+                {/* Cercle SVG countdown */}
+                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r={r} fill="none" stroke="currentColor"
+                    className="text-gray-200 dark:text-gray-600" strokeWidth="4" />
+                  <circle cx="60" cy="60" r={r} fill="none" stroke="currentColor"
+                    className="text-green-500 transition-all duration-1000"
+                    strokeWidth="4" strokeLinecap="round"
+                    strokeDasharray={circ}
+                    strokeDashoffset={circ - (pct / 100) * circ} />
+                </svg>
+                {/* QR image avec fade au changement */}
+                <img
+                  key={qrKey}
+                  src={status.qr}
+                  alt="WhatsApp QR Code"
+                  className="w-44 h-44 rounded-lg m-4"
+                  style={{ animation: 'qrFadeIn 0.4s ease' }}
+                />
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500">
+                Nouveau QR dans <strong className="text-gray-600 dark:text-gray-300">{countdown}s</strong>
+              </p>
             </div>
-            <p className="text-xs text-center text-gray-400">Le QR se rafraîchit automatiquement toutes les 5s jusqu'à connexion</p>
           </div>
         )}
 
         {status?.state === 'connected' && (
           <div className="space-y-3">
-            <p className="text-sm text-green-700 dark:text-green-400">
-              WhatsApp est connecté. Les messages de relance seront envoyés automatiquement dès qu'un donateur passe en retard.
-            </p>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-sm text-green-700 dark:text-green-400">
+                WhatsApp connecté — messages envoyés automatiquement dès qu'un donateur passe en retard.
+              </p>
+            </div>
             <button
               onClick={handleLogout} disabled={loading}
               className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 underline disabled:opacity-50"
@@ -647,6 +691,7 @@ function WhatsAppSection({ addNotification }) {
           Utilise Baileys (open source) — gratuit et illimité. Les messages partent depuis le numéro WhatsApp scanné.
         </p>
       </div>
+      <style>{`@keyframes qrFadeIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }`}</style>
     </section>
   );
 }
