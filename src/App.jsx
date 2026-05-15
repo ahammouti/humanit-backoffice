@@ -915,6 +915,7 @@ export default function App() {
                   onAdd={(data) => { addRelance(data); addNotification('📧 Relance enregistrée.'); }}
                   onRemove={removeRelance}
                   addNotification={addNotification}
+                  onUpdateDonor={({ id, phone }) => updateDonor(id, { phone })}
                 />
               )}
               {currentTab === 'members' && (
