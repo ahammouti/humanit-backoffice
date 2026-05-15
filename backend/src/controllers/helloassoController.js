@@ -488,6 +488,20 @@ export const syncForms = async (req, res, next) => {
   }
 };
 
+export const debugRaw = async (req, res, next) => {
+  try {
+    const [payments, members] = await Promise.allSettled([getPayments(), getMembers()]);
+    const p = payments.status === 'fulfilled' ? payments.value[0] : null;
+    const m = members.status  === 'fulfilled' ? members.value[0]  : null;
+    res.json({
+      firstPayment: p ?? null,
+      firstMember:  m ?? null,
+      payerKeys:    p ? Object.keys(p.payer ?? {}) : [],
+      userKeys:     m ? Object.keys((m.user ?? m.payer) ?? {}) : [],
+    });
+  } catch (err) { next(err); }
+};
+
 export const resetData = async (req, res, next) => {
   try {
     await prisma.activityLog.deleteMany();
