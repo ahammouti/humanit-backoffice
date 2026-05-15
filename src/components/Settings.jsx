@@ -535,7 +535,7 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
       </section>
 
       {/* WHATSAPP */}
-      {can('admin') && <WhatsAppSection addNotification={addNotification} />}
+      {can('manageUsers') && <WhatsAppSection addNotification={addNotification} />}
 
       {/* ROADMAP */}
       <section className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-5">
