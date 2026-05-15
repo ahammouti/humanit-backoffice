@@ -78,14 +78,22 @@ function WhatsAppModal({ donor, onClose, onSent, addNotification }) {
     } finally { setSending(false); }
   };
 
-  const phone = donor.phone ? `+${donor.phone.replace(/\D/g, '')}` : '⚠️ Pas de numéro';
+  const rawPhone = donor.phone?.replace(/\D/g, '') || '';
+  const hasPhone = rawPhone.length > 0;
+  const displayPhone = hasPhone ? `+${rawPhone}` : null;
 
   return (
     <div>
       <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-between">
         <div>
           <p className="font-bold text-gray-900 dark:text-gray-100 text-sm">{donor.firstName} {donor.lastName}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">{phone} · {donor.delayMonths} mois · {donor.amount * donor.delayMonths} € dû</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            {displayPhone
+              ? <span className="text-green-600 dark:text-green-400 font-medium">{displayPhone}</span>
+              : <span className="text-orange-500 dark:text-orange-400">Numéro absent — à renseigner dans la fiche donateur</span>
+            }
+            {' '}· {donor.delayMonths} mois · {donor.amount * donor.delayMonths} € dû
+          </p>
         </div>
         <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold rounded-lg border border-green-200 dark:border-green-800">
           <Send className="h-3.5 w-3.5" /> WhatsApp
@@ -103,11 +111,16 @@ function WhatsAppModal({ donor, onClose, onSent, addNotification }) {
             value={text}
             onChange={e => setText(e.target.value)}
           />
+          {!hasPhone && (
+            <p className="mt-2 text-xs text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg px-3 py-2">
+              Ce donateur n'a pas de numéro enregistré. Ajoute-le dans sa fiche pour pouvoir envoyer via WhatsApp. Si un numéro test est configuré dans les Paramètres, le message y sera envoyé.
+            </p>
+          )}
           <div className="flex gap-3 mt-4 justify-end">
             <button onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
               Annuler
             </button>
-            <button onClick={send} disabled={sending || !donor.phone}
+            <button onClick={send} disabled={sending}
               className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {sending ? 'Envoi...' : 'Envoyer WhatsApp'}

@@ -43,16 +43,18 @@ export const syncMembers = async (req, res, next) => {
       if (existing) { skipped++; continue; }
 
       const startDate = m.order?.date ?? m.membership?.startDate ?? new Date();
+      const phone = (user.phone || user.phoneNumber || m.order?.payer?.phone || m.order?.payer?.phoneNumber || '').replace(/\D/g, '') || null;
       await prisma.donor.create({
         data: {
           firstName: user.firstName ?? 'Inconnu',
           lastName: user.lastName ?? 'Inconnu',
           email,
+          phone,
           poleId: pole.id,
           amount: 0,
           startDate: new Date(startDate),
           paymentMethod: 'helloasso',
-          paymentFrequency: 'mensuel', // membre HelloAsso = adhésion récurrente
+          paymentFrequency: 'mensuel',
           status: 'ACTIF',
           delayMonths: 0,
           helloassoMemberId: String(m.id ?? ''),
@@ -113,12 +115,15 @@ export const syncPayments = async (req, res, next) => {
 
       const formType = p.order?.formType ?? null;
 
+      const rawPhone = (p.payer?.phone || p.payer?.phoneNumber || '').replace(/\D/g, '') || null;
+
       if (!donor) {
         donor = await prisma.donor.create({
           data: {
             firstName: p.payer.firstName ?? 'Inconnu',
             lastName: p.payer.lastName ?? 'Inconnu',
             email,
+            phone: rawPhone,
             poleId: pole.id,
             amount,
             startDate: new Date(p.date),
@@ -129,6 +134,8 @@ export const syncPayments = async (req, res, next) => {
           },
         });
         created++;
+      } else if (!donor.phone && rawPhone) {
+        await prisma.donor.update({ where: { id: donor.id }, data: { phone: rawPhone } });
       }
 
       const payment = await prisma.payment.create({
