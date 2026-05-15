@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import prisma from '../config/database.js';
+import { sendRetardEmail, sendRetardWhatsApp } from '../services/notifications.js';
 
 const relanceSchema = z.object({
   donorId: z.string(),
@@ -50,6 +51,50 @@ export const createRelance = async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+};
+
+export const notifyDonor = async (req, res, next) => {
+  try {
+    const donor = await prisma.donor.findUnique({
+      where: { id: req.params.id, deletedAt: null },
+      include: { pole: true },
+    });
+    if (!donor) return res.status(404).json({ error: 'Donateur introuvable' });
+
+    const results = { whatsappSent: false, emailSent: false, errors: [] };
+
+    const settled = await Promise.allSettled([
+      sendRetardEmail(donor),
+      sendRetardWhatsApp(donor),
+    ]);
+
+    if (settled[0].status === 'fulfilled') results.emailSent = true;
+    else results.errors.push(`Email: ${settled[0].reason?.message}`);
+
+    if (settled[1].status === 'fulfilled') results.whatsappSent = true;
+    else results.errors.push(`WhatsApp: ${settled[1].reason?.message}`);
+
+    const label = [
+      results.whatsappSent && 'WhatsApp',
+      results.emailSent    && 'Email',
+    ].filter(Boolean).join('+') || 'Notification';
+
+    const relance = await prisma.relance.create({
+      data: {
+        donorId: donor.id,
+        date:    new Date(),
+        result:  `${label} envoyé`,
+        note:    'Envoi manuel depuis le back-office.',
+      },
+    });
+
+    await prisma.donor.update({
+      where: { id: donor.id },
+      data:  { lastContactDate: relance.date, lastContactResult: relance.result },
+    });
+
+    res.json({ success: true, results, relance: serialize(relance) });
+  } catch (err) { next(err); }
 };
 
 export const deleteRelance = async (req, res, next) => {

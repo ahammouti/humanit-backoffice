@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import {
   Sparkles, Copy, Loader2, CheckCircle2, Clock, AlertCircle,
-  MessageSquare, Filter, ChevronDown, Phone, Mail, TrendingDown, Trash2,
+  MessageSquare, Filter, ChevronDown, Phone, Mail, TrendingDown, Trash2, Send,
 } from 'lucide-react';
 import { SourceBadge, Modal, FormField, Input, Select } from './ui';
+import client from '../api/client';
 
 const buildEmail = (donor) =>
 `Assalamou Alaikoum wa rahmatullahi wa barakatuh ${donor.firstName},
@@ -146,11 +147,12 @@ const FILTERS = [
 ];
 
 export default function Relances({ donors, relances, onAdd, onRemove, addNotification }) {
-  const [emailFor, setEmailFor] = useState(null);
-  const [logFor, setLogFor]     = useState(null);
-  const [tab, setTab]           = useState('todo');
-  const [filter, setFilter]     = useState('all');
-  const [sortBy, setSortBy]     = useState('recovery');
+  const [emailFor, setEmailFor]   = useState(null);
+  const [logFor, setLogFor]       = useState(null);
+  const [tab, setTab]             = useState('todo');
+  const [filter, setFilter]       = useState('all');
+  const [sortBy, setSortBy]       = useState('recovery');
+  const [sending, setSending]     = useState(new Set());
 
   const toContact = useMemo(() => {
     const retard = donors.filter(d => d.status === 'RETARD');
@@ -189,6 +191,25 @@ export default function Relances({ donors, relances, onAdd, onRemove, addNotific
   const handleQuickLog = (donor, result) => {
     onAdd({ donorId: donor.id, date: new Date().toISOString().split('T')[0], result, note: '' });
     addNotification(`✅ Relance "${result}" enregistrée.`);
+  };
+
+  const handleSendNotif = async (donor) => {
+    setSending(prev => new Set(prev).add(donor.id));
+    try {
+      const { data } = await client.post(`/relances/${donor.id}/notify`);
+      const r = data.results;
+      const lines = [];
+      if (r.whatsappSent) lines.push(`✅ WhatsApp → +${donor.phone}`);
+      if (r.emailSent)    lines.push(`✅ Email → ${donor.email}`);
+      if (!r.whatsappSent && !r.emailSent) lines.push('⚠️ Aucun canal disponible');
+      r.errors?.forEach(e => lines.push(`❌ ${e}`));
+      addNotification(lines.join(' | '));
+      if (data.relance) onAdd(data.relance);
+    } catch (e) {
+      addNotification(e?.response?.data?.error ?? 'Erreur envoi notification', 'warning');
+    } finally {
+      setSending(prev => { const s = new Set(prev); s.delete(donor.id); return s; });
+    }
   };
 
   const getDaysSince = (dateStr) => {
@@ -333,6 +354,14 @@ export default function Relances({ donors, relances, onAdd, onRemove, addNotific
 
                     {/* Actions */}
                     <div className="flex gap-1.5 flex-shrink-0 items-center">
+                      <button onClick={() => handleSendNotif(donor)}
+                        disabled={sending.has(donor.id)}
+                        className="p-1.5 md:px-3 md:py-1.5 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg border border-green-200 dark:border-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Envoyer notification (WhatsApp + Email)">
+                        {sending.has(donor.id)
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Send className="h-3.5 w-3.5" />}
+                      </button>
                       <button onClick={() => setEmailFor(donor)}
                         className="p-1.5 md:px-3 md:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors"
                         title="Email IA">
