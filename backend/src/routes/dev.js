@@ -6,7 +6,8 @@ import { Router } from 'express';
 import prisma from '../config/database.js';
 import { authenticate } from '../middleware/auth.js';
 import { requireRole } from '../middleware/permissions.js';
-import { sendRetardNotification } from '../services/notifications.js';
+import { sendRetardEmail, sendRetardWhatsApp } from '../services/notifications.js';
+import { getWhatsAppStatus } from '../services/whatsapp.js';
 
 const router = Router();
 router.use(authenticate, requireRole('admin'));
@@ -14,17 +15,40 @@ router.use(authenticate, requireRole('admin'));
 // Envoie une notification test au numéro/email de test configuré dans .env
 router.post('/test-notify', async (req, res, next) => {
   try {
-    const body = req.body ?? {};
+    const { getConfig } = await import('../controllers/settingsController.js');
+    const [testPhone, testEmail, notifEnabled] = await Promise.all([
+      getConfig('notif_test_phone'),
+      getConfig('notif_test_email'),
+      getConfig('notif_enabled'),
+    ]);
+
+    const { state: waState } = getWhatsAppStatus();
+    const hasSMTP = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+    const phone   = (testPhone || process.env.NOTIFY_TEST_PHONE || '').replace(/\D/g, '');
+    const email   = testEmail  || process.env.NOTIFY_TEST_EMAIL  || '';
+
     const fakeDonor = {
-      firstName: body.firstName ?? 'Ali',
-      lastName:  body.lastName  ?? 'Test',
-      email:     body.email     ?? process.env.NOTIFY_TEST_EMAIL ?? 'test@humanit-r.org',
-      phone:     body.phone     ?? process.env.NOTIFY_TEST_PHONE ?? '',
-      amount:    body.amount    ?? 20,
-      pole:      body.pole      ?? 'Test',
+      firstName: 'Ali', lastName: 'Test',
+      email:  email  || 'ali.test@humanit-r.org',
+      phone:  phone  || '',
+      amount: 20, pole: 'Test',
     };
-    await sendRetardNotification(fakeDonor);
-    res.json({ success: true });
+
+    const results = { notifEnabled, waState, hasSMTP, phone, email, whatsappSent: false, emailSent: false, errors: [] };
+
+    // Bypass notif_enabled pour le test — envoie toujours
+    const settled = await Promise.allSettled([
+      sendRetardEmail(fakeDonor),
+      sendRetardWhatsApp(fakeDonor),
+    ]);
+
+    if (settled[0].status === 'fulfilled') results.emailSent = true;
+    else results.errors.push(`Email: ${settled[0].reason?.message}`);
+
+    if (settled[1].status === 'fulfilled') results.whatsappSent = true;
+    else results.errors.push(`WhatsApp: ${settled[1].reason?.message}`);
+
+    res.json({ success: true, results });
   } catch (err) { next(err); }
 });
 

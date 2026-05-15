@@ -595,8 +595,15 @@ function NotifSection({ addNotification }) {
   const sendTest = async () => {
     setTesting(true);
     try {
-      await client.post('/dev/test-notify');
-      addNotification('✅ Notification test envoyée.');
+      const { data } = await client.post('/dev/test-notify');
+      const r = data.results;
+      const lines = [];
+      if (r.waState !== 'connected') lines.push(`⚠️ WhatsApp non connecté (${r.waState}) — scanne le QR d'abord`);
+      else if (r.whatsappSent) lines.push(`✅ WhatsApp envoyé → +${r.phone}`);
+      if (!r.hasSMTP) lines.push('ℹ️ Email non configuré (SMTP absent)');
+      else if (r.emailSent) lines.push(`✅ Email envoyé → ${r.email}`);
+      if (r.errors.length) lines.push(...r.errors.map(e => `❌ ${e}`));
+      addNotification(lines.join(' | ') || '✅ Test exécuté');
     } catch (e) {
       addNotification(e?.response?.data?.error ?? 'Erreur envoi test', 'warning');
     } finally { setTesting(false); }
