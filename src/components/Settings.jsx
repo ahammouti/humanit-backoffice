@@ -635,31 +635,25 @@ function WhatsAppSection({ addNotification }) {
               La connexion est persistante — un seul scan suffit.
             </p>
 
-            {/* QR + countdown cercle superposé */}
             <div className="flex flex-col items-center gap-3">
-              <div className="relative inline-flex items-center justify-center">
-                {/* Cercle SVG countdown */}
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r={r} fill="none" stroke="currentColor"
-                    className="text-gray-200 dark:text-gray-600" strokeWidth="4" />
-                  <circle cx="60" cy="60" r={r} fill="none" stroke="currentColor"
-                    className="text-green-500 transition-all duration-1000"
-                    strokeWidth="4" strokeLinecap="round"
-                    strokeDasharray={circ}
-                    strokeDashoffset={circ - (pct / 100) * circ} />
-                </svg>
-                {/* QR image avec fade au changement */}
-                <img
-                  key={qrKey}
-                  src={status.qr}
-                  alt="WhatsApp QR Code"
-                  className="w-44 h-44 rounded-lg m-4"
-                  style={{ animation: 'qrFadeIn 0.4s ease' }}
-                />
+              <img
+                key={qrKey}
+                src={status.qr}
+                alt="WhatsApp QR Code"
+                className="w-52 h-52 rounded-xl shadow-lg"
+                style={{ animation: 'qrFadeIn 0.4s ease' }}
+              />
+              <div className="w-52 space-y-1">
+                <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all duration-1000"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-center text-gray-400 dark:text-gray-500">
+                  Nouveau QR dans <strong className="text-gray-600 dark:text-gray-300">{countdown}s</strong>
+                </p>
               </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
-                Nouveau QR dans <strong className="text-gray-600 dark:text-gray-300">{countdown}s</strong>
-              </p>
             </div>
           </div>
         )}
