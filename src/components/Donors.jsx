@@ -276,7 +276,14 @@ function DonorDetail({ donor, poles, onClose, onEdit, onAddPayment, onAddRelance
             <h4 className="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-3">Informations</h4>
             <div className="space-y-2.5 text-sm">
               <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400"><Mail className="h-4 w-4 text-gray-400 flex-shrink-0" /><a href={`mailto:${donor.email}`} className="text-blue-600 dark:text-blue-400 hover:underline">{donor.email}</a></div>
-              {donor.phone && <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400"><Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />{donor.phone}</div>}
+              {donor.phone && (
+                <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400">
+                  <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                  <a href={`tel:+${donor.phone.replace(/\D/g, '')}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                    +{donor.phone.replace(/\D/g, '')}
+                  </a>
+                </div>
+              )}
               <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400"><CreditCard className="h-4 w-4 text-gray-400 flex-shrink-0" />{donor.amount} €/mois · {donor.pole}</div>
               {donor.startDate && <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400"><Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />Membre depuis le {new Date(donor.startDate).toLocaleDateString('fr-FR')}</div>}
               {donor.lastPayment && <div className="flex items-center gap-2.5 text-gray-600 dark:text-gray-400"><Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />Dernier paiement : {donor.lastPayment.split('-').reverse().join('/')}</div>}
@@ -692,8 +699,13 @@ export default function Donors({ tableLoading = false, donors, donorsTotal = 0, 
                   <td className="px-4 py-3">
                     <button className="text-left" onClick={() => setSelectedDonor(donor)}>
                       <p className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">{donor.firstName} {donor.lastName}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <p className="text-xs text-gray-400 dark:text-gray-500">{donor.email}</p>
+                        {donor.phone && (
+                          <span className="flex items-center gap-0.5 text-xs text-gray-400 dark:text-gray-500">
+                            <Phone className="h-3 w-3" />+{donor.phone.replace(/\D/g, '')}
+                          </span>
+                        )}
                         {donor.paymentFrequency === 'ponctuel'
                           ? <span className="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-800 font-medium leading-none">Ponctuel</span>
                           : <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-medium leading-none">Mensuel</span>
