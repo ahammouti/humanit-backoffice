@@ -682,9 +682,22 @@ function WhatsAppSection({ addNotification }) {
         )}
 
         {(status?.state === 'logged_out' || status?.state === 'disconnected') && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            WhatsApp est déconnecté. Redémarre le serveur backend pour générer un nouveau QR code.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              WhatsApp est déconnecté.
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  await client.post('/whatsapp/connect');
+                  setTimeout(fetchStatus, 3_000);
+                } catch { addNotification('Erreur reconnexion', 'warning'); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
+            >
+              <RefreshCw className="h-4 w-4" /> Générer un nouveau QR
+            </button>
+          </div>
         )}
 
         <p className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-100 dark:border-gray-700">
