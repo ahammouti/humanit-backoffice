@@ -14,16 +14,17 @@ router.use(authenticate, requireRole('admin'));
 // Envoie une notification test au numéro/email de test configuré dans .env
 router.post('/test-notify', async (req, res, next) => {
   try {
+    const body = req.body ?? {};
     const fakeDonor = {
-      firstName: req.body.firstName ?? 'Ali',
-      lastName:  req.body.lastName  ?? 'Test',
-      email:     req.body.email     ?? process.env.NOTIFY_TEST_EMAIL ?? 'test@humanit-r.org',
-      phone:     req.body.phone     ?? process.env.NOTIFY_TEST_PHONE ?? '',
-      amount:    req.body.amount    ?? 20,
-      pole:      req.body.pole      ?? 'Test',
+      firstName: body.firstName ?? 'Ali',
+      lastName:  body.lastName  ?? 'Test',
+      email:     body.email     ?? process.env.NOTIFY_TEST_EMAIL ?? 'test@humanit-r.org',
+      phone:     body.phone     ?? process.env.NOTIFY_TEST_PHONE ?? '',
+      amount:    body.amount    ?? 20,
+      pole:      body.pole      ?? 'Test',
     };
     await sendRetardNotification(fakeDonor);
-    res.json({ success: true, sentTo: { email: process.env.NOTIFY_TEST_EMAIL ?? fakeDonor.email, phone: process.env.NOTIFY_TEST_PHONE ?? fakeDonor.phone } });
+    res.json({ success: true });
   } catch (err) { next(err); }
 });
 
