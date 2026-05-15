@@ -158,6 +158,14 @@ export const updateDonor = async (req, res, next) => {
       include: { pole: true },
     });
 
+    // Propager le téléphone à toutes les fiches du même email
+    if (updateData.phone !== undefined && oldDonor?.email) {
+      await prisma.donor.updateMany({
+        where: { email: oldDonor.email, id: { not: req.params.id }, deletedAt: null },
+        data: { phone: updateData.phone },
+      });
+    }
+
     const { status, delayMonths } = computeStatus(donor);
     const updated = await prisma.donor.update({
       where: { id: donor.id },
