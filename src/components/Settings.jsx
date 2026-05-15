@@ -534,6 +534,9 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
         </div>
       </section>
 
+      {/* NOTIFICATIONS CONFIG */}
+      {can('manageUsers') && <NotifSection addNotification={addNotification} />}
+
       {/* WHATSAPP */}
       {can('manageUsers') && <WhatsAppSection addNotification={addNotification} />}
 
@@ -549,6 +552,137 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
         </ul>
       </section>
     </div>
+  );
+}
+
+const DEFAULT_TEMPLATE =
+`Assalamou Alaikoum {{firstName}} 🤲
+
+Votre don mensuel de {{amount}} € pour le projet "{{pole}}" (Humanit'R) n'a pas pu être traité ce mois-ci.
+
+"La sadaqa n'a jamais diminué un bien." — Sahih Muslim
+
+Vous pouvez régulariser sur HelloAsso ou nous répondre directement insh'Allah.
+
+Qu'Allah vous récompense — Humanit'R Trésorerie 🌙`;
+
+function NotifSection({ addNotification }) {
+  const [enabled,   setEnabled]   = useState(false);
+  const [testPhone, setTestPhone] = useState('');
+  const [testEmail, setTestEmail] = useState('');
+  const [template,  setTemplate]  = useState('');
+  const [saving,    setSaving]    = useState(false);
+  const [testing,   setTesting]   = useState(false);
+
+  useEffect(() => {
+    fetchSettings().then(s => {
+      setEnabled(s.notifEnabled ?? false);
+      setTestPhone(s.testPhone ?? '');
+      setTestEmail(s.testEmail ?? '');
+      setTemplate(s.whatsappTemplate ?? '');
+    }).catch(() => {});
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateSettings({ notifEnabled: enabled, testPhone, testEmail, whatsappTemplate: template });
+      addNotification('✅ Configuration notifications sauvegardée.');
+    } catch { addNotification('Erreur sauvegarde', 'warning'); }
+    finally { setSaving(false); }
+  };
+
+  const sendTest = async () => {
+    setTesting(true);
+    try {
+      await client.post('/dev/test-notify');
+      addNotification('✅ Notification test envoyée.');
+    } catch (e) {
+      addNotification(e?.response?.data?.error ?? 'Erreur envoi test', 'warning');
+    } finally { setTesting(false); }
+  };
+
+  return (
+    <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">Notifications automatiques — Configuration</h3>
+      </div>
+      <div className="p-5 space-y-5">
+
+        {/* Toggle activer */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Activer les notifications</p>
+            <p className="text-xs text-gray-400 mt-0.5">Email + WhatsApp envoyés quand un donateur passe en retard</p>
+          </div>
+          <button
+            onClick={() => setEnabled(e => !e)}
+            className={`relative w-11 h-6 rounded-full transition-colors ${enabled ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
+          </button>
+        </div>
+
+        {/* Numéros de test */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              Téléphone test <span className="text-gray-400">(ex: 33612345678)</span>
+            </label>
+            <input
+              value={testPhone} onChange={e => setTestPhone(e.target.value)}
+              placeholder="Laisser vide = numéro du donateur"
+              className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+              Email test
+            </label>
+            <input
+              value={testEmail} onChange={e => setTestEmail(e.target.value)}
+              placeholder="Laisser vide = email du donateur"
+              className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+            />
+          </div>
+        </div>
+
+        {/* Template WhatsApp */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+              Message WhatsApp — variables : <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{{firstName}}'}</code> <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{{amount}}'}</code> <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">{'{{pole}}'}</code>
+            </label>
+            <button onClick={() => setTemplate('')} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline">
+              Réinitialiser
+            </button>
+          </div>
+          <textarea
+            value={template || DEFAULT_TEMPLATE}
+            onChange={e => setTemplate(e.target.value === DEFAULT_TEMPLATE ? '' : e.target.value)}
+            rows={8}
+            className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-mono resize-y"
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={save} disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+          >
+            <Save className="h-4 w-4" /> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+          </button>
+          <button
+            onClick={sendTest} disabled={testing}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
+          >
+            {testing ? 'Envoi...' : '▶ Envoyer notification test'}
+          </button>
+          <p className="text-xs text-gray-400">Utilise le donateur "Ali Test" si il existe</p>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -104,7 +104,12 @@ export async function sendRetardEmail(donor) {
 
 // ── Envoi WhatsApp via Baileys (WhatsApp Web — gratuit, illimité) ──────────
 export async function sendRetardWhatsApp(donor) {
-  const rawPhone = process.env.NOTIFY_TEST_PHONE ?? donor.phone;
+  const { getConfig } = await import('../controllers/settingsController.js');
+  const [testPhone, customTemplate] = await Promise.all([
+    getConfig('notif_test_phone'),
+    getConfig('whatsapp_template'),
+  ]);
+  const rawPhone = testPhone || process.env.NOTIFY_TEST_PHONE || donor.phone;
   const phone    = rawPhone?.replace(/\D/g, '');
 
   if (!phone) {
@@ -120,12 +125,27 @@ export async function sendRetardWhatsApp(donor) {
     return;
   }
 
-  await sendWhatsAppMessage(phone, buildWhatsAppMsg(donor));
+  const pole   = typeof donor.pole === 'object' ? donor.pole?.name : donor.pole;
+  const msg = customTemplate
+    ? customTemplate
+        .replace(/\{\{firstName\}\}/g, donor.firstName)
+        .replace(/\{\{lastName\}\}/g,  donor.lastName)
+        .replace(/\{\{amount\}\}/g,    donor.amount ?? '?')
+        .replace(/\{\{pole\}\}/g,      pole ?? '?')
+    : buildWhatsAppMsg(donor);
+  await sendWhatsAppMessage(phone, msg);
   console.log(`[notif/whatsapp] envoyé → +${phone}`);
 }
 
 // ── Notification complète (email + WhatsApp) ───────────────────────────────
 export async function sendRetardNotification(donor) {
+  const { getConfig } = await import('../controllers/settingsController.js');
+  const enabled = await getConfig('notif_enabled');
+  if (enabled !== 'true') {
+    console.log(`[notif] Notifications désactivées — aucun message envoyé pour ${donor.firstName} ${donor.lastName}`);
+    return;
+  }
+
   const results = await Promise.allSettled([
     sendRetardEmail(donor),
     sendRetardWhatsApp(donor),
