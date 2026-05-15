@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Save, Moon, Sun, Users, Shield, PlayCircle, AlertTriangle, CheckCircle, Palette } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Trash2, Save, Moon, Sun, Users, Shield, PlayCircle, AlertTriangle, CheckCircle, Palette, Smartphone, RefreshCw } from 'lucide-react';
 import { useApp, ROLE_CFG, THEMES, DARK_BG_PRESETS } from '../contexts/AppContext';
 import { fetchSettings, updateSettings } from '../api/settings.js';
 import client from '../api/client.js';
@@ -22,7 +22,7 @@ const STATIC_USERS = [
 ];
 
 export default function Settings({ poles, polesData = [], onUpdatePoles, addNotification, can }) {
-  const { isDark, toggleDark, accentTheme, setAccentTheme, darkBg, setDarkBg } = useApp();
+  const { isDark, toggleDark, accentTheme, setAccentTheme, customSidebar, setCustomSidebar, darkBg, setDarkBg, customDarkBg, setCustomDarkBg } = useApp();
   const [newPole, setNewPole]   = useState('');
   const [dueDay, setDueDay]     = useState(15);
   const [autoArreteMonths, setAutoArreteMonths] = useState(12);
@@ -92,7 +92,6 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
                       : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700/50'
                   }`}
                 >
-                  {/* Sidebar preview mini */}
                   <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden shadow-sm" style={{ backgroundColor: t.bg }}>
                     <div className="h-2 mt-1.5 mx-1 rounded-sm" style={{ backgroundColor: t.active }} />
                     <div className="h-1.5 mt-1 mx-1 rounded-sm opacity-50" style={{ backgroundColor: t.navBorder }} />
@@ -109,7 +108,43 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
                   )}
                 </button>
               ))}
+              {/* Tile personnalisé */}
+              <button
+                onClick={() => setAccentTheme('custom')}
+                className={`relative flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
+                  accentTheme === 'custom'
+                    ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700/50'
+                }`}
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg overflow-hidden shadow-sm border border-gray-300 dark:border-gray-500 flex items-center justify-center" style={{ backgroundColor: customSidebar.bg }}>
+                  <div className="w-4 h-4 rounded-full border-2 border-white/60" style={{ backgroundColor: customSidebar.accent }} />
+                </div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">Personnalisé</p>
+                {accentTheme === 'custom' && (
+                  <div className="absolute top-1.5 right-1.5 w-3 h-3 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center">
+                    <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 8 8"><path d="M1.5 4l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
+                )}
+              </button>
             </div>
+            {/* Color pickers personnalisé sidebar */}
+            {accentTheme === 'custom' && (
+              <div className="mt-3 p-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 flex gap-6">
+                <label className="flex flex-col items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Fond sidebar</span>
+                  <input type="color" value={customSidebar.bg} onChange={e => setCustomSidebar({ ...customSidebar, bg: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-300 dark:border-gray-500 p-0.5 bg-transparent" />
+                  <span className="text-[10px] font-mono text-gray-400">{customSidebar.bg}</span>
+                </label>
+                <label className="flex flex-col items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Couleur accent</span>
+                  <input type="color" value={customSidebar.accent} onChange={e => setCustomSidebar({ ...customSidebar, accent: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-300 dark:border-gray-500 p-0.5 bg-transparent" />
+                  <span className="text-[10px] font-mono text-gray-400">{customSidebar.accent}</span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Fond mode sombre */}
@@ -139,7 +174,44 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
                   )}
                 </button>
               ))}
+              {/* Tile personnalisé fond sombre */}
+              <button
+                onClick={() => { setDarkBg('custom'); addNotification('Fond personnalisé appliqué.'); }}
+                className={`relative flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all text-left ${
+                  darkBg === 'custom'
+                    ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 bg-white dark:bg-gray-700/50'
+                }`}
+              >
+                <div className="flex-shrink-0 w-8 h-8 rounded-lg border border-gray-400 overflow-hidden shadow-sm flex flex-col gap-0.5 p-1" style={{ backgroundColor: customDarkBg.bg }}>
+                  <div className="flex-1 rounded-sm opacity-60" style={{ backgroundColor: customDarkBg.surface }} />
+                  <div className="h-1.5 rounded-sm opacity-30" style={{ backgroundColor: customDarkBg.surface }} />
+                </div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">Personnalisé</p>
+                {darkBg === 'custom' && (
+                  <div className="absolute top-1.5 right-1.5 w-3 h-3 rounded-full bg-blue-500 dark:bg-blue-400 flex items-center justify-center">
+                    <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 8 8"><path d="M1.5 4l2 2 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
+                )}
+              </button>
             </div>
+            {/* Color pickers personnalisé fond sombre */}
+            {darkBg === 'custom' && (
+              <div className="mt-3 p-4 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 flex gap-6">
+                <label className="flex flex-col items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Fond principal</span>
+                  <input type="color" value={customDarkBg.bg} onChange={e => setCustomDarkBg({ ...customDarkBg, bg: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-300 dark:border-gray-500 p-0.5 bg-transparent" />
+                  <span className="text-[10px] font-mono text-gray-400">{customDarkBg.bg}</span>
+                </label>
+                <label className="flex flex-col items-center gap-2 cursor-pointer">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Surface (cartes)</span>
+                  <input type="color" value={customDarkBg.surface} onChange={e => setCustomDarkBg({ ...customDarkBg, surface: e.target.value })}
+                    className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-300 dark:border-gray-500 p-0.5 bg-transparent" />
+                  <span className="text-[10px] font-mono text-gray-400">{customDarkBg.surface}</span>
+                </label>
+              </div>
+            )}
           </div>
 
         </div>
@@ -462,6 +534,9 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
         </div>
       </section>
 
+      {/* WHATSAPP */}
+      {can('admin') && <WhatsAppSection addNotification={addNotification} />}
+
       {/* ROADMAP */}
       <section className="bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-5">
         <h3 className="font-bold text-blue-800 dark:text-blue-300 text-sm mb-2">Prochaines étapes</h3>
@@ -474,5 +549,104 @@ export default function Settings({ poles, polesData = [], onUpdatePoles, addNoti
         </ul>
       </section>
     </div>
+  );
+}
+
+function WhatsAppSection({ addNotification }) {
+  const [status, setStatus]   = useState(null); // null | {state, qr}
+  const [loading, setLoading] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await client.get('/whatsapp/status');
+      setStatus(res.data);
+    } catch { /* backend pas encore dispo */ }
+  }, []);
+
+  useEffect(() => {
+    fetchStatus();
+    // Poll toutes les 5s quand QR affiché pour détecter la connexion
+    const id = setInterval(fetchStatus, 5_000);
+    return () => clearInterval(id);
+  }, [fetchStatus]);
+
+  const handleLogout = async () => {
+    setLoading(true);
+    try {
+      await client.post('/whatsapp/logout');
+      addNotification('WhatsApp déconnecté.');
+      await fetchStatus();
+    } catch { addNotification('Erreur déconnexion', 'warning'); }
+    finally { setLoading(false); }
+  };
+
+  const STATE_INFO = {
+    connected:    { label: 'Connecté',          cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    qr:           { label: 'Scan QR requis',     cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+    connecting:   { label: 'Connexion...',        cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    logged_out:   { label: 'Déconnecté',          cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+    disconnected: { label: 'Déconnecté',          cls: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
+  };
+
+  const info = status ? (STATE_INFO[status.state] ?? STATE_INFO.disconnected) : null;
+
+  return (
+    <section className="bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-300 dark:border-gray-700 overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Smartphone className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">WhatsApp — Notifications automatiques</h3>
+        </div>
+        <button onClick={fetchStatus} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <RefreshCw className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 dark:text-gray-400">Statut :</span>
+          {info
+            ? <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${info.cls}`}>{info.label}</span>
+            : <span className="text-xs text-gray-400">Chargement...</span>
+          }
+        </div>
+
+        {status?.state === 'qr' && status.qr && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Scannez ce QR avec <strong>WhatsApp → Appareils liés → Lier un appareil</strong>.
+              La connexion est persistante — un seul scan suffit.
+            </p>
+            <div className="flex justify-center">
+              <img src={status.qr} alt="WhatsApp QR Code" className="w-52 h-52 rounded-xl border-4 border-green-500 shadow-lg" />
+            </div>
+            <p className="text-xs text-center text-gray-400">Le QR se rafraîchit automatiquement toutes les 5s jusqu'à connexion</p>
+          </div>
+        )}
+
+        {status?.state === 'connected' && (
+          <div className="space-y-3">
+            <p className="text-sm text-green-700 dark:text-green-400">
+              WhatsApp est connecté. Les messages de relance seront envoyés automatiquement dès qu'un donateur passe en retard.
+            </p>
+            <button
+              onClick={handleLogout} disabled={loading}
+              className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-300 underline disabled:opacity-50"
+            >
+              {loading ? 'Déconnexion...' : 'Déconnecter ce compte WhatsApp'}
+            </button>
+          </div>
+        )}
+
+        {(status?.state === 'logged_out' || status?.state === 'disconnected') && (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            WhatsApp est déconnecté. Redémarre le serveur backend pour générer un nouveau QR code.
+          </p>
+        )}
+
+        <p className="text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-100 dark:border-gray-700">
+          Utilise Baileys (open source) — gratuit et illimité. Les messages partent depuis le numéro WhatsApp scanné.
+        </p>
+      </div>
+    </section>
   );
 }
