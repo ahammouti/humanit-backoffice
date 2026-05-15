@@ -47,17 +47,45 @@ export const DARK_BG_PRESETS = {
   navy:  { label: 'Marine profond', bg: '8,14,44',    s1: '15,25,65',   s2: '25,40,90',   preview: '#080e2c' },
 };
 
-function applyDarkBg(key) {
-  const p = DARK_BG_PRESETS[key] ?? DARK_BG_PRESETS.gray;
+function hexToRgb(hex) {
+  const m = (hex || '#000').match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  return m ? `${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)}` : '0,0,0';
+}
+
+export const DEFAULT_CUSTOM_SIDEBAR = { bg: '#0c1a47', accent: '#2563eb' };
+export const DEFAULT_CUSTOM_DARKBG  = { bg: '#111827', surface: '#1f2937' };
+
+function applyDarkBg(key, custom = null) {
   const r = document.documentElement.style;
+  if (key === 'custom' && custom) {
+    const bgRgb  = hexToRgb(custom.bg);
+    const s1Rgb  = hexToRgb(custom.surface);
+    const s2 = custom.surface; // derive s2 slightly lighter
+    r.setProperty('--dk-bg', bgRgb);
+    r.setProperty('--dk-s1', s1Rgb);
+    r.setProperty('--dk-s2', s1Rgb); // approximate
+    return;
+  }
+  const p = DARK_BG_PRESETS[key] ?? DARK_BG_PRESETS.gray;
   r.setProperty('--dk-bg', p.bg);
   r.setProperty('--dk-s1', p.s1);
   r.setProperty('--dk-s2', p.s2);
 }
 
-function applyTheme(key) {
-  const t = THEMES[key] ?? THEMES.blue;
+function applyTheme(key, custom = null) {
   const r = document.documentElement.style;
+  if (key === 'custom' && custom) {
+    const accRgb = hexToRgb(custom.accent);
+    r.setProperty('--s-bg',         custom.bg);
+    r.setProperty('--s-active',     `rgba(${accRgb},0.55)`);
+    r.setProperty('--s-hover',      `rgba(${accRgb},0.25)`);
+    r.setProperty('--s-border',     `rgba(${accRgb},0.35)`);
+    r.setProperty('--s-nav-border', custom.accent);
+    r.setProperty('--s-btn',        custom.accent);
+    r.setProperty('--s-btn-h',      custom.accent);
+    return;
+  }
+  const t = THEMES[key] ?? THEMES.blue;
   r.setProperty('--s-bg',         t.bg);
   r.setProperty('--s-active',     t.active);
   r.setProperty('--s-hover',      t.hover);
@@ -78,6 +106,14 @@ export function AppProvider({ children }) {
   const [isDark, setIsDark] = useState(() => localStorage.getItem('hm_dark') === 'true');
   const [accentTheme, setAccentThemeState] = useState(() => localStorage.getItem('hm_theme') || 'blue');
   const [darkBg, setDarkBgState] = useState(() => localStorage.getItem('hm_darkbg') || 'gray');
+  const [customSidebar, setCustomSidebarState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hm_custom_sidebar')) || DEFAULT_CUSTOM_SIDEBAR; }
+    catch { return DEFAULT_CUSTOM_SIDEBAR; }
+  });
+  const [customDarkBg, setCustomDarkBgState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hm_custom_darkbg')) || DEFAULT_CUSTOM_DARKBG; }
+    catch { return DEFAULT_CUSTOM_DARKBG; }
+  });
   const [activityLog, setActivityLog] = useState([]);
 
   useLayoutEffect(() => {
@@ -86,17 +122,25 @@ export function AppProvider({ children }) {
   }, [isDark]);
 
   useLayoutEffect(() => {
-    applyTheme(accentTheme);
+    applyTheme(accentTheme, customSidebar);
     localStorage.setItem('hm_theme', accentTheme);
-  }, [accentTheme]);
+  }, [accentTheme, customSidebar]);
 
   useLayoutEffect(() => {
-    applyDarkBg(darkBg);
+    applyDarkBg(darkBg, customDarkBg);
     localStorage.setItem('hm_darkbg', darkBg);
-  }, [darkBg]);
+  }, [darkBg, customDarkBg]);
 
   const setAccentTheme = useCallback((key) => setAccentThemeState(key), []);
   const setDarkBg = useCallback((key) => setDarkBgState(key), []);
+  const setCustomSidebar = useCallback((val) => {
+    setCustomSidebarState(val);
+    localStorage.setItem('hm_custom_sidebar', JSON.stringify(val));
+  }, []);
+  const setCustomDarkBg = useCallback((val) => {
+    setCustomDarkBgState(val);
+    localStorage.setItem('hm_custom_darkbg', JSON.stringify(val));
+  }, []);
 
   // Verify token on mount — non-blocking, user already shown from localStorage cache
   useEffect(() => {
@@ -169,7 +213,7 @@ export function AppProvider({ children }) {
   }, [currentUser]);
 
   return (
-    <AppContext.Provider value={{ currentUser, login, logout, isDark, toggleDark, accentTheme, setAccentTheme, darkBg, setDarkBg, activityLog, logAction, can }}>
+    <AppContext.Provider value={{ currentUser, login, logout, isDark, toggleDark, accentTheme, setAccentTheme, customSidebar, setCustomSidebar, darkBg, setDarkBg, customDarkBg, setCustomDarkBg, activityLog, logAction, can }}>
       {children}
     </AppContext.Provider>
   );

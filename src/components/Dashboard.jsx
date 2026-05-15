@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { gsap } from 'gsap';
 import { getStats, getPoleHistory } from '../api/dashboard.js';
+import { getDonors as getDonorsApi } from '../api/donors.js';
 import {
   CheckCircle2, AlertCircle, Clock, CreditCard,
   TrendingUp, TrendingDown, BarChart3, Sparkles, Loader2,
@@ -106,6 +107,7 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
   const hasStatsRef                         = useRef(false);
   const [drillHistory, setDrillHistory]     = useState(null);
   const [drillLoading, setDrillLoading]     = useState(false);
+  const [urgentDonors, setUrgentDonors]     = useState([]);
 
   // Compute the viewed period date from offset
   const viewedDate = useMemo(() => {
@@ -175,6 +177,21 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
     await fetchStats(selectedPole, { silent: true, offset: viewOffset, mode: periodMode });
     setRefreshing(false);
   }, [selectedPole, fetchStats, viewOffset, periodMode]);
+
+  // ── Urgent donors widget — recent RETARD first (most recoverable) ─────────
+  useEffect(() => {
+    getDonorsApi({ status: 'RETARD', sortBy: 'delayMonths', sortOrder: 'asc', limit: 10 })
+      .then(res => {
+        const data = res.data ?? [];
+        // Jamais contactés en tête, puis par délai croissant
+        const sorted = [
+          ...data.filter(d => !d.lastContactDate),
+          ...data.filter(d => d.lastContactDate),
+        ].slice(0, 5);
+        setUrgentDonors(sorted);
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Filtered donors by selected pole (for drill-down tabs) ───────────────
   const filteredDonors = useMemo(() =>
@@ -680,32 +697,37 @@ export default function Dashboard({ donors, payments, envois = [], selectedPole,
             <div className="px-4 py-3 border-b border-red-100 bg-red-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-500" />
-                <h3 className="font-bold text-red-800 text-sm">À relancer ({toContact.length || urgentCount})</h3>
+                <h3 className="font-bold text-red-800 text-sm">À relancer ({urgentCount || toContact.length})</h3>
               </div>
               {(toContact.length > 0 || urgentCount > 0) && (
                 <button onClick={onGoToRelances} className="text-xs text-red-600 hover:underline font-semibold">Voir tout →</button>
               )}
             </div>
-            <div className="divide-y divide-gray-100">
-              {toContact.length === 0 && urgentCount === 0
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+              {urgentCount === 0 && urgentDonors.length === 0
                 ? <div className="p-6 text-center text-gray-400 text-sm"><CheckCircle2 className="h-7 w-7 mx-auto mb-2 text-green-300" /> Aucune relance urgente !</div>
-                : toContact.length > 0
-                ? toContact.slice(0, 5).map(d => (
+                : urgentDonors.length > 0
+                ? urgentDonors.map(d => (
                   <div
                     key={d.id}
                     onClick={() => onNavigate?.('relances')}
-                    className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 transition-colors"
+                    className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
                   >
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">{d.firstName} {d.lastName}</p>
-                      <p className="text-xs text-gray-400">{d.delayMonths} mois · {d.amount * d.delayMonths} €</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm truncate">{d.firstName} {d.lastName}</p>
+                        {!d.lastContactDate && (
+                          <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 px-1.5 py-0.5 rounded flex-shrink-0">Jamais contacté</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{d.delayMonths} mois · {d.amount} €/mois · {d.pole}</p>
                     </div>
-                    <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">{d.delayMonths}m</span>
+                    <span className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-2 py-0.5 rounded-full flex-shrink-0 ml-3">{d.delayMonths}m</span>
                   </div>
                 ))
-                : <div className="p-6 text-center text-gray-400 text-sm cursor-pointer hover:bg-red-50 transition-colors" onClick={() => onNavigate?.('relances')}>
+                : <div className="p-6 text-center text-gray-400 text-sm cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors" onClick={() => onNavigate?.('relances')}>
                     <AlertCircle className="h-7 w-7 mx-auto mb-2 text-red-300" />
-                    {urgentCount} donateur{urgentCount > 1 ? 's' : ''} sans contact — voir les relances
+                    {urgentCount} donateur{urgentCount > 1 ? 's' : ''} en retard — voir les relances
                   </div>
               }
             </div>

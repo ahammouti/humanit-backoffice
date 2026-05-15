@@ -672,7 +672,15 @@ export default function Donors({ tableLoading = false, donors, donorsTotal = 0, 
             </thead>
             <tbody ref={tbodyRef} className={`divide-y divide-gray-100 dark:divide-gray-700 transition-opacity duration-200 ${tableLoading ? 'opacity-50' : 'opacity-100'}`}>
               {filtered.map(donor => (
-                <tr key={donor.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${selectedIds.has(donor.id) ? 'bg-orange-50/50 dark:bg-orange-900/10' : ''}`}>
+                <tr key={donor.id} className={`transition-colors ${
+                  selectedIds.has(donor.id)
+                    ? 'bg-orange-50/60 dark:bg-orange-900/15'
+                    : donor.status === 'RETARD'
+                      ? 'bg-red-50/60 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20'
+                      : donor.status === 'ARRETE'
+                        ? 'bg-gray-100/80 dark:bg-gray-700/30 hover:bg-gray-100 dark:hover:bg-gray-700/50 opacity-75'
+                        : 'hover:bg-blue-50/40 dark:hover:bg-gray-700/40'
+                }`}>
                   <td className="pl-4 pr-2 py-3">
                     <input
                       type="checkbox"

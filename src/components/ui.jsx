@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import { X } from 'lucide-react';
 
@@ -54,14 +54,37 @@ export function StatCard({ title, value, subtitle, extra, icon, color = 'blue', 
     orange: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800',
     purple: 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 border-purple-100 dark:border-purple-800',
   };
-  const isEur = typeof value === 'string' && value.endsWith(' €');
+  const cardRef = useRef(null);
+  const isEur = typeof value === 'string' && value.includes('€');
   const numEnd = typeof value === 'number'
     ? value
-    : isEur ? (parseInt(String(value).replace(/[\s ]/g, '')) || 0) : null;
+    : isEur ? (parseInt(String(value).replace(/[\s  ]/g, '')) || 0) : null;
+
+  const handleMouseMove = useCallback((e) => {
+    const el = cardRef.current;
+    if (!el) return;
+    const { left, top, width, height } = el.getBoundingClientRect();
+    const x = (e.clientX - left) / width - 0.5;
+    const y = (e.clientY - top)  / height - 0.5;
+    el.style.transform = `perspective(600px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) translateZ(4px)`;
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 0.35s ease';
+    el.style.transform = 'perspective(600px) rotateY(0deg) rotateX(0deg) translateZ(0)';
+    setTimeout(() => { if (el) el.style.transition = ''; }, 360);
+  }, []);
+
   return (
     <div
+      ref={cardRef}
       onClick={onClick}
-      className={`bg-white dark:bg-gray-800 p-5 rounded-xl shadow border border-gray-300 dark:border-gray-700 transition-all hover:shadow-md ${onClick ? 'cursor-pointer hover:border-blue-400 hover:-translate-y-0.5' : ''}`}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{ transformStyle: 'preserve-3d', willChange: 'transform' }}
+      className={`bg-white dark:bg-gray-800 p-5 rounded-xl shadow border border-gray-300 dark:border-gray-700 transition-shadow hover:shadow-lg ${onClick ? 'cursor-pointer hover:border-blue-400' : ''}`}
     >
       <div className="flex items-start justify-between mb-3">
         <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</p>
@@ -113,14 +136,17 @@ export function Modal({ open, onClose, title, children, size = 'md' }) {
   if (!open) return null;
   const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className={`bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full ${sizes[size]} flex flex-col max-h-[92vh]`}
+        className={`rounded-t-2xl sm:rounded-2xl shadow-2xl w-full ${sizes[size]} flex flex-col max-h-[92vh] bg-white dark:bg-gray-800/80 dark:backdrop-blur-xl dark:border dark:border-white/10`}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-white/10 flex-shrink-0">
           <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 rounded-lg transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
