@@ -6,17 +6,23 @@ import {
 import { SourceBadge, Modal, FormField, Input, Select } from './ui';
 
 const buildEmail = (donor) =>
-`Bonjour ${donor.firstName},
+`Assalamou Alaikoum wa rahmatullahi wa barakatuh ${donor.firstName},
 
-Nous espérons que vous allez bien. Nous nous permettons de vous contacter au sujet de votre engagement généreux envers le projet "${donor.pole}" au sein de l'association Humanit'R.
+Nous espérons, insh'Allah, que vous et votre famille vous portez bien.
 
-Il semble que votre prélèvement mensuel de ${donor.amount} € n'ait pas pu être effectué ce mois-ci. Cela arrive parfois — carte bancaire expirée, changement de compte, ou simple oubli — et nous comprenons tout à fait.
+Nous nous permettons de vous contacter au sujet de votre don mensuel de ${donor.amount} € pour le projet "${donor.pole}" au sein de l'association Humanit'R.
 
-Si vous souhaitez régulariser votre situation, vous pouvez le faire directement sur notre page HelloAsso en quelques clics. Si vous traversez une période de difficultés, n'hésitez pas à nous contacter directement, nous trouverons ensemble la meilleure solution.
+Il semble que votre prélèvement de ce mois-ci n'ait pas pu être effectué — carte expirée, changement de compte ou simple oubli, cela arrive et nous le comprenons tout à fait.
 
-Votre soutien est précieux pour les bénéficiaires de nos projets, et nous vous en sommes profondément reconnaissants.
+Le Prophète ﷺ a dit : « La sadaqa n'a jamais diminué un bien. » (Sahih Muslim)
 
-Cordialement,
+Votre soutien est une sadaqa précieuse qui aide concrètement nos frères et sœurs dans le besoin. Si vous souhaitez régulariser votre don, vous pouvez le faire directement sur notre page HelloAsso en quelques clics : https://www.helloasso.com/associations/humanit-r
+
+Si vous traversez une période de difficultés, n'hésitez pas à nous contacter directement — nous trouverons ensemble la meilleure solution, insh'Allah.
+
+Qu'Allah vous récompense du bien pour votre générosité et bénisse vos biens et votre famille.
+
+Wa assalamou alaikoum wa rahmatullahi wa barakatuh,
 L'équipe Humanit'R — Pôle Trésorerie`;
 
 function urgencyLevel(delayMonths, neverContacted) {

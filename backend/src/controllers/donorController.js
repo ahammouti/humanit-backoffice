@@ -140,6 +140,9 @@ export const updateDonor = async (req, res, next) => {
     const data = donorSchema.partial().parse(req.body);
     const { poleId: rawPoleId, pole: poleName, startDate, lastPayment, lastContactDate, ...rest } = data;
 
+    const oldDonor = await prisma.donor.findUnique({ where: { id: req.params.id }, include: { pole: true } });
+    const oldStatus = oldDonor?.status;
+
     const updateData = { ...rest };
     if (rawPoleId || poleName) {
       const resolvedId = await resolvePoleId(rawPoleId, poleName);
@@ -163,6 +166,11 @@ export const updateDonor = async (req, res, next) => {
     });
 
     res.json(serialize(updated));
+
+    if (status === 'RETARD' && oldStatus !== 'RETARD') {
+      const { sendRetardNotification } = await import('../services/notifications.js');
+      sendRetardNotification(updated).catch(err => console.error('[notif]', err.message));
+    }
   } catch (err) {
     next(err);
   }

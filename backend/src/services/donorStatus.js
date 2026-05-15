@@ -40,12 +40,16 @@ export const computeStatus = (donor, asOf = new Date()) => {
 };
 
 export const refreshDonorStatus = async (prisma, donorId) => {
-  const donor = await prisma.donor.findUnique({ where: { id: donorId } });
+  const donor = await prisma.donor.findUnique({ where: { id: donorId }, include: { pole: true } });
   if (!donor) return;
 
+  const oldStatus = donor.status;
   const { status, delayMonths } = computeStatus(donor);
-  await prisma.donor.update({
-    where: { id: donorId },
-    data: { status, delayMonths },
-  });
+
+  await prisma.donor.update({ where: { id: donorId }, data: { status, delayMonths } });
+
+  if (status === 'RETARD' && oldStatus !== 'RETARD') {
+    const { sendRetardNotification } = await import('./notifications.js');
+    sendRetardNotification(donor).catch(err => console.error('[notif]', err.message));
+  }
 };
