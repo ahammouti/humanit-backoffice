@@ -103,7 +103,7 @@ export async function sendRetardEmail(donor) {
 }
 
 // ── Envoi WhatsApp via Baileys (WhatsApp Web — gratuit, illimité) ──────────
-export async function sendRetardWhatsApp(donor) {
+export async function sendRetardWhatsApp(donor, messageOverride = null) {
   const { getConfig } = await import('../controllers/settingsController.js');
   const [testPhone, customTemplate] = await Promise.all([
     getConfig('notif_test_phone'),
@@ -125,14 +125,19 @@ export async function sendRetardWhatsApp(donor) {
     return;
   }
 
-  const pole   = typeof donor.pole === 'object' ? donor.pole?.name : donor.pole;
-  const msg = customTemplate
-    ? customTemplate
-        .replace(/\{\{firstName\}\}/g, donor.firstName)
-        .replace(/\{\{lastName\}\}/g,  donor.lastName)
-        .replace(/\{\{amount\}\}/g,    donor.amount ?? '?')
-        .replace(/\{\{pole\}\}/g,      pole ?? '?')
-    : buildWhatsAppMsg(donor);
+  const pole = typeof donor.pole === 'object' ? donor.pole?.name : donor.pole;
+  let msg;
+  if (messageOverride) {
+    msg = messageOverride;
+  } else if (customTemplate) {
+    msg = customTemplate
+      .replace(/\{\{firstName\}\}/g, donor.firstName)
+      .replace(/\{\{lastName\}\}/g,  donor.lastName)
+      .replace(/\{\{amount\}\}/g,    donor.amount ?? '?')
+      .replace(/\{\{pole\}\}/g,      pole ?? '?');
+  } else {
+    msg = buildWhatsAppMsg(donor);
+  }
   await sendWhatsAppMessage(phone, msg);
   console.log(`[notif/whatsapp] envoyé → +${phone}`);
 }

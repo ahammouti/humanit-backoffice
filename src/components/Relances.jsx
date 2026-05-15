@@ -38,6 +38,87 @@ const URGENCY = {
   1: { bar: 'bg-gray-400',   text: 'text-gray-500 dark:text-gray-400',   badge: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600',     card: 'border-l-gray-400',   avatar: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',    label: 'Retard ancien' },
 };
 
+const buildWhatsApp = (donor) => {
+  const pole   = typeof donor.pole === 'object' ? donor.pole?.name : (donor.pole ?? '?');
+  const amount = donor.amount ?? '?';
+  return (
+    `Assalamou Alaikoum ${donor.firstName} 🤲\n\n` +
+    `Votre don mensuel de ${amount} € pour le projet "${pole}" (Humanit'R) n'a pas pu être traité ce mois-ci.\n\n` +
+    `"La sadaqa n'a jamais diminué un bien." — Sahih Muslim\n\n` +
+    `Vous pouvez régulariser sur HelloAsso ou nous répondre directement insh'Allah.\n\n` +
+    `Qu'Allah vous récompense — Humanit'R Trésorerie 🌙`
+  );
+};
+
+function WhatsAppModal({ donor, onClose, onSent, addNotification }) {
+  const [text, setText]       = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setTimeout(() => { if (!cancelled) { setText(buildWhatsApp(donor)); setLoading(false); } }, 600);
+    return () => { cancelled = true; };
+  }, [donor]);
+
+  const send = async () => {
+    setSending(true);
+    try {
+      const { data } = await client.post(`/relances/${donor.id}/notify`, { message: text });
+      const r = data.results;
+      const lines = [];
+      if (r.whatsappSent) lines.push(`✅ WhatsApp → +${donor.phone}`);
+      else lines.push('⚠️ WhatsApp non envoyé (vérifier connexion)');
+      r.errors?.forEach(e => lines.push(`❌ ${e}`));
+      addNotification(lines.join(' | '));
+      if (data.relance) onSent(data.relance);
+      onClose();
+    } catch (e) {
+      addNotification(e?.response?.data?.error ?? 'Erreur envoi WhatsApp', 'warning');
+    } finally { setSending(false); }
+  };
+
+  const phone = donor.phone ? `+${donor.phone.replace(/\D/g, '')}` : '⚠️ Pas de numéro';
+
+  return (
+    <div>
+      <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center justify-between">
+        <div>
+          <p className="font-bold text-gray-900 dark:text-gray-100 text-sm">{donor.firstName} {donor.lastName}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">{phone} · {donor.delayMonths} mois · {donor.amount * donor.delayMonths} € dû</p>
+        </div>
+        <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-semibold rounded-lg border border-green-200 dark:border-green-800">
+          <Send className="h-3.5 w-3.5" /> WhatsApp
+        </span>
+      </div>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-10 text-green-600 dark:text-green-400 gap-3">
+          <Loader2 className="h-7 w-7 animate-spin" />
+          <p className="text-sm animate-pulse">Rédaction du message...</p>
+        </div>
+      ) : (
+        <>
+          <textarea
+            className="w-full h-56 p-4 border border-gray-200 dark:border-gray-600 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-green-500 leading-relaxed bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            value={text}
+            onChange={e => setText(e.target.value)}
+          />
+          <div className="flex gap-3 mt-4 justify-end">
+            <button onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              Annuler
+            </button>
+            <button onClick={send} disabled={sending || !donor.phone}
+              className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {sending ? 'Envoi...' : 'Envoyer WhatsApp'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function EmailModal({ donor, onClose, onMarkSent }) {
   const [text, setText]       = useState('');
   const [loading, setLoading] = useState(true);
@@ -148,11 +229,11 @@ const FILTERS = [
 
 export default function Relances({ donors, relances, onAdd, onRemove, addNotification }) {
   const [emailFor, setEmailFor]   = useState(null);
+  const [waFor, setWaFor]         = useState(null);
   const [logFor, setLogFor]       = useState(null);
   const [tab, setTab]             = useState('todo');
   const [filter, setFilter]       = useState('all');
   const [sortBy, setSortBy]       = useState('recovery');
-  const [sending, setSending]     = useState(new Set());
 
   const toContact = useMemo(() => {
     const retard = donors.filter(d => d.status === 'RETARD');
@@ -193,24 +274,6 @@ export default function Relances({ donors, relances, onAdd, onRemove, addNotific
     addNotification(`✅ Relance "${result}" enregistrée.`);
   };
 
-  const handleSendNotif = async (donor) => {
-    setSending(prev => new Set(prev).add(donor.id));
-    try {
-      const { data } = await client.post(`/relances/${donor.id}/notify`);
-      const r = data.results;
-      const lines = [];
-      if (r.whatsappSent) lines.push(`✅ WhatsApp → +${donor.phone}`);
-      if (r.emailSent)    lines.push(`✅ Email → ${donor.email}`);
-      if (!r.whatsappSent && !r.emailSent) lines.push('⚠️ Aucun canal disponible');
-      r.errors?.forEach(e => lines.push(`❌ ${e}`));
-      addNotification(lines.join(' | '));
-      if (data.relance) onAdd(data.relance);
-    } catch (e) {
-      addNotification(e?.response?.data?.error ?? 'Erreur envoi notification', 'warning');
-    } finally {
-      setSending(prev => { const s = new Set(prev); s.delete(donor.id); return s; });
-    }
-  };
 
   const getDaysSince = (dateStr) => {
     if (!dateStr) return null;
@@ -245,6 +308,9 @@ export default function Relances({ donors, relances, onAdd, onRemove, addNotific
     <div className="p-3 md:p-6 space-y-4 md:space-y-5">
       <Modal open={!!emailFor} onClose={() => setEmailFor(null)} title="Email de relance" size="lg">
         {emailFor && <EmailModal donor={emailFor} onClose={() => setEmailFor(null)} onMarkSent={() => handleMarkSent(emailFor)} />}
+      </Modal>
+      <Modal open={!!waFor} onClose={() => setWaFor(null)} title="Message WhatsApp" size="lg">
+        {waFor && <WhatsAppModal donor={waFor} onClose={() => setWaFor(null)} onSent={(relance) => { onAdd(relance); }} addNotification={addNotification} />}
       </Modal>
       <Modal open={!!logFor} onClose={() => setLogFor(null)} title="Enregistrer une relance" size="md">
         {logFor && <LogRelanceModal donor={logFor} onSubmit={(data) => { onAdd(data); setLogFor(null); addNotification('✅ Relance enregistrée.'); }} onClose={() => setLogFor(null)} />}
@@ -354,13 +420,10 @@ export default function Relances({ donors, relances, onAdd, onRemove, addNotific
 
                     {/* Actions */}
                     <div className="flex gap-1.5 flex-shrink-0 items-center">
-                      <button onClick={() => handleSendNotif(donor)}
-                        disabled={sending.has(donor.id)}
-                        className="p-1.5 md:px-3 md:py-1.5 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg border border-green-200 dark:border-green-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Envoyer notification (WhatsApp + Email)">
-                        {sending.has(donor.id)
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <Send className="h-3.5 w-3.5" />}
+                      <button onClick={() => setWaFor(donor)}
+                        className="p-1.5 md:px-3 md:py-1.5 bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 text-green-700 dark:text-green-400 rounded-lg border border-green-200 dark:border-green-800 transition-colors"
+                        title="Envoyer message WhatsApp">
+                        <Send className="h-3.5 w-3.5" />
                       </button>
                       <button onClick={() => setEmailFor(donor)}
                         className="p-1.5 md:px-3 md:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 rounded-lg border border-indigo-200 dark:border-indigo-800 transition-colors"

@@ -61,11 +61,12 @@ export const notifyDonor = async (req, res, next) => {
     });
     if (!donor) return res.status(404).json({ error: 'Donateur introuvable' });
 
+    const { message } = req.body ?? {};
     const results = { whatsappSent: false, emailSent: false, errors: [] };
 
     const settled = await Promise.allSettled([
       sendRetardEmail(donor),
-      sendRetardWhatsApp(donor),
+      sendRetardWhatsApp(donor, message || null),
     ]);
 
     if (settled[0].status === 'fulfilled') results.emailSent = true;
