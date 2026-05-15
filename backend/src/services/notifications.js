@@ -102,18 +102,36 @@ export async function sendRetardEmail(donor) {
   console.log(`[notif/email] envoyé → ${to}`);
 }
 
-// ── Envoi WhatsApp via CallMeBot ───────────────────────────────────────────
+// ── Envoi WhatsApp via Green API (gratuit 2000 msg/mois) ──────────────────
+// Setup : green-api.com → créer instance → scanner QR → copier ID + Token
 export async function sendRetardWhatsApp(donor) {
-  const phone  = process.env.NOTIFY_TEST_PHONE ?? donor.phone?.replace(/\D/g, '');
-  const apiKey = process.env.CALLMEBOT_API_KEY;
-  if (!phone || !apiKey) {
-    console.log(`[notif/whatsapp] mock → ${donor.firstName} ${donor.lastName} (${phone ?? 'no phone'})`);
+  const instanceId = process.env.GREENAPI_INSTANCE_ID;
+  const token      = process.env.GREENAPI_TOKEN;
+
+  // En test : surcharge le destinataire avec le numéro de test
+  const rawPhone = process.env.NOTIFY_TEST_PHONE ?? donor.phone;
+  const phone    = rawPhone?.replace(/\D/g, '');
+
+  if (!instanceId || !token) {
+    console.log(`[notif/whatsapp] mock (GREENAPI non configuré) → ${donor.firstName} ${donor.lastName}`);
     return;
   }
-  const text = encodeURIComponent(buildWhatsAppMsg(donor));
-  const url  = `https://api.callmebot.com/whatsapp.php?phone=${phone}&text=${text}&apikey=${apiKey}`;
-  const res  = await fetch(url);
-  if (!res.ok) throw new Error(`CallMeBot ${res.status}: ${await res.text()}`);
+  if (!phone) {
+    console.log(`[notif/whatsapp] skip — pas de numéro pour ${donor.firstName} ${donor.lastName}`);
+    return;
+  }
+
+  const chatId = `${phone}@c.us`;
+  const url    = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+  const res    = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ chatId, message: buildWhatsAppMsg(donor) }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Green API ${res.status}: ${body}`);
+  }
   console.log(`[notif/whatsapp] envoyé → +${phone}`);
 }
 
